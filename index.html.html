@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Plan Nutricional — Tu menú paso a paso</title>
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { serif: ['"Playfair Display"', 'Georgia', 'serif'] }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&display=swap" rel="stylesheet"/>
+
+  <!-- React + ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+  <!-- Babel standalone (transpila JSX en el navegador) -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    body { background: #fafaf9; margin: 0; }
+    * { box-sizing: border-box; }
+    input[type=range] { cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect, useMemo } = React;
+
+
+/* ═══════════════════════════════════════════
+   TEMPORADA (mes actual)
+═══════════════════════════════════════════ */
+const MES = new Date().getMonth();
+const MES_NOMBRE = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"][MES];
+const TEMPORADA_POR_MES = {
+  0:["Alcachofa","Espinaca","Puerro","Naranja","Mandarina","Kiwi","Brócoli"],
+  1:["Alcachofa","Espinaca","Puerro","Naranja","Kiwi","Coliflor"],
+  2:["Espárrago","Guisante","Alcachofa","Fresas","Naranja","Puerro"],
+  3:["Espárrago","Guisante","Habas","Fresas","Cereza","Rúcula"],
+  4:["Espárrago","Guisante","Habas","Fresas","Cereza","Nectarina"],
+  5:["Tomate","Pimiento rojo","Berenjena","Calabacín","Pepino","Sandía","Melocotón","Cereza"],
+  6:["Tomate","Pimiento rojo","Berenjena","Calabacín","Pepino","Sandía","Melón","Melocotón","Ciruela","Higos"],
+  7:["Tomate","Pimiento rojo","Berenjena","Sandía","Melón","Melocotón","Higos","Uva","Pera"],
+  8:["Setas","Calabaza","Boniato","Uva","Pera","Manzana","Kiwi","Granada"],
+  9:["Setas","Calabaza","Boniato","Coles","Manzana","Pera","Granada","Mandarina"],
+  10:["Setas","Calabaza","Coliflor","Brócoli","Manzana","Mandarina","Caqui"],
+  11:["Brócoli","Coliflor","Espinaca","Col","Naranja","Mandarina","Kiwi"],
+};
+const TEMPORADA_ACTUAL = TEMPORADA_POR_MES[MES] || [];
+
+/* ═══════════════════════════════════════════
+   BASE DE DATOS DE ALIMENTOS
+═══════════════════════════════════════════ */
+const GRUPOS = [
+  { id:"carne", nombre:"🥩 Carne y aves", rol:"proteina", excluible:"noCarne", alimentos:[
+    {id:"pollo_pecho",n:"Pechuga de pollo",ref:"cocinado",kcal:165,p:31,c:0,g:3.6},
+    {id:"pavo",n:"Pechuga de pavo",ref:"cocinado",kcal:150,p:29,c:0,g:3},
+    {id:"ternera",n:"Ternera magra",ref:"cocinado",kcal:180,p:28,c:0,g:7},
+    {id:"cerdo_lomo",n:"Lomo de cerdo",ref:"cocinado",kcal:165,p:26,c:0,g:6.5},
+    {id:"pollo_muslo",n:"Muslo de pollo sin piel",ref:"cocinado",kcal:175,p:26,c:0,g:8},
+    {id:"conejo",n:"Conejo",ref:"cocinado",kcal:150,p:28,c:0,g:4},
+  ]},
+  { id:"pescado", nombre:"🐟 Pescado y marisco", rol:"proteina", excluible:"noPescado", alimentos:[
+    {id:"atun_natural",n:"Atún al natural (lata)",ref:"escurrido",kcal:128,p:28,c:0,g:1.2},
+    {id:"salmon",n:"Salmón",ref:"cocinado",kcal:200,p:22,c:0,g:12},
+    {id:"merluza",n:"Merluza",ref:"cocinada",kcal:85,p:18,c:0,g:1.2},
+    {id:"bacalao",n:"Bacalao",ref:"cocinado",kcal:90,p:20,c:0,g:0.9},
+    {id:"dorada",n:"Dorada / lubina",ref:"cocinada",kcal:95,p:19,c:0,g:2.3},
+    {id:"sardina",n:"Sardina (lata)",ref:"escurrida",kcal:208,p:25,c:0,g:12},
+    {id:"gambas",n:"Gambas / langostinos",ref:"cocinados",kcal:99,p:21,c:0,g:1.5},
+    {id:"caballa",n:"Caballa en conserva",ref:"escurrida",kcal:150,p:24,c:0,g:6},
+    {id:"mejillones",n:"Mejillones",ref:"cocidos",kcal:86,p:12,c:4,g:2.2},
+    {id:"sepia",n:"Sepia / calamar",ref:"cocinado",kcal:92,p:18,c:1.5,g:1.4},
+    {id:"salmon_ahumado",n:"Salmón ahumado",ref:"tal cual",kcal:180,p:22,c:0,g:10},
+  ]},
+  { id:"huevo", nombre:"🥚 Huevo", rol:"proteina", alimentos:[
+    {id:"huevo_entero",n:"Huevo entero (~50 g)",ref:"unidad",kcal:78,p:6.5,c:0.5,g:5.5},
+    {id:"clara",n:"Clara de huevo (~30 g)",ref:"unidad",kcal:15,p:3.5,c:0.2,g:0.1},
+  ]},
+  { id:"proteina_vegetal", nombre:"🌱 Proteína vegetal", rol:"proteina", alimentos:[
+    {id:"tofu_firme",n:"Tofu firme",ref:"tal cual",kcal:145,p:15,c:2,g:9},
+    {id:"tofu_ahumado",n:"Tofu ahumado",ref:"tal cual",kcal:165,p:17,c:1.5,g:10},
+    {id:"tempeh",n:"Tempeh",ref:"tal cual",kcal:190,p:19,c:9,g:11},
+    {id:"soja_text",n:"Soja texturizada fina",ref:"seca (hidrata ×3)",kcal:345,p:52,c:28,g:1.5},
+    {id:"edamame",n:"Edamame",ref:"cocinado",kcal:121,p:11,c:9,g:5},
+    {id:"seitan",n:"Seitán",ref:"tal cual",kcal:120,p:21,c:7,g:1.5},
+    {id:"proteina_polvo",n:"Proteína en polvo",ref:"cazo ~30 g",kcal:120,p:24,c:3,g:2},
+  ]},
+  { id:"legumbres", nombre:"🫘 Legumbres", rol:"proteina", alimentos:[
+    {id:"lentejas",n:"Lentejas",ref:"cocidas",kcal:116,p:9,c:20,g:0.4},
+    {id:"garbanzos",n:"Garbanzos",ref:"cocidos",kcal:164,p:9,c:27,g:2.6},
+    {id:"judias_negras",n:"Judías negras / pintas",ref:"cocidas",kcal:132,p:8.9,c:24,g:0.5},
+    {id:"judias_blancas",n:"Judías blancas",ref:"cocidas",kcal:139,p:9,c:25,g:0.5},
+    {id:"azukis",n:"Azukis",ref:"cocidos",kcal:128,p:7.5,c:25,g:0.1},
+  ]},
+  { id:"lacteos", nombre:"🥛 Lácteos", rol:"proteina", excluible:"sinLacteos", alimentos:[
+    {id:"yogur_griego_0",n:"Yogur griego 0%",ref:"tal cual",kcal:57,p:9,c:4,g:0.2},
+    {id:"skyr",n:"Skyr natural",ref:"tal cual",kcal:63,p:11,c:4,g:0.2},
+    {id:"queso_batido",n:"Queso batido 0%",ref:"tal cual",kcal:45,p:7.5,c:3.5,g:0.2},
+    {id:"queso_cottage",n:"Queso cottage",ref:"tal cual",kcal:98,p:11,c:3.4,g:4.3},
+    {id:"kefir",n:"Kéfir natural",ref:"tal cual",kcal:61,p:3.3,c:4.8,g:3.5},
+    {id:"leche_desnatada",n:"Leche desnatada",ref:"tal cual",kcal:35,p:3.6,c:5,g:0.1},
+    {id:"bebida_soja",n:"Bebida de soja sin azúcar",ref:"tal cual",kcal:33,p:3.3,c:0.5,g:1.8},
+  ]},
+  { id:"cereales", nombre:"🌾 Cereales y pan", rol:"carbohidrato", alimentos:[
+    {id:"avena",n:"Copos de avena",ref:"seco",kcal:370,p:13,c:60,g:7},
+    {id:"arroz_integral",n:"Arroz integral",ref:"seco (cocido ×3)",kcal:350,p:7.5,c:75,g:2.5},
+    {id:"arroz_basmati",n:"Arroz basmati",ref:"seco (cocido ×2.5)",kcal:350,p:7,c:77,g:0.5},
+    {id:"pasta_integral",n:"Pasta integral",ref:"seca (cocida ×2.3)",kcal:350,p:13,c:68,g:2},
+    {id:"pasta_legumbre",n:"Pasta de legumbres",ref:"seca",kcal:340,p:22,c:55,g:2},
+    {id:"pan_integral",n:"Pan integral 100%",ref:"tal cual",kcal:250,p:9,c:45,g:3.5},
+    {id:"pan_centeno",n:"Pan de centeno",ref:"tal cual",kcal:260,p:9,c:48,g:3},
+    {id:"cuscus",n:"Cuscús integral",ref:"seco (cocido ×2)",kcal:360,p:12,c:72,g:2},
+    {id:"quinoa",n:"Quinoa",ref:"seca (cocida ×3)",kcal:370,p:14,c:64,g:6},
+    {id:"sarraceno",n:"Trigo sarraceno",ref:"seco",kcal:340,p:13,c:70,g:3.4},
+    {id:"tortitas",n:"Tortitas de arroz / maíz",ref:"unidad ~10 g",kcal:389,p:7,c:78,g:3},
+    {id:"muesli_sin",n:"Muesli sin azúcar",ref:"seco",kcal:350,p:10,c:62,g:8},
+  ]},
+  { id:"tuberculos", nombre:"🥔 Tubérculos", rol:"carbohidrato", alimentos:[
+    {id:"patata",n:"Patata",ref:"cruda",kcal:80,p:2,c:18,g:0.1},
+    {id:"boniato",n:"Boniato (batata)",ref:"crudo",kcal:86,p:1.6,c:20,g:0.1},
+  ]},
+  { id:"verdura", nombre:"🥦 Verdura y hortalizas", rol:"verdura", alimentos:[
+    {id:"brocoli",n:"Brócoli",ref:"libre",kcal:34,p:2.8,c:7,g:0.4},
+    {id:"espinaca",n:"Espinaca",ref:"libre",kcal:23,p:2.9,c:3.6,g:0.4},
+    {id:"kale",n:"Kale",ref:"libre",kcal:35,p:3.3,c:6,g:0.6},
+    {id:"pimiento_rojo",n:"Pimiento rojo",ref:"libre",kcal:31,p:1,c:6,g:0.3},
+    {id:"pimiento_verde",n:"Pimiento verde",ref:"libre",kcal:20,p:0.9,c:4,g:0.2},
+    {id:"calabacin",n:"Calabacín",ref:"libre",kcal:17,p:1.2,c:3.1,g:0.3},
+    {id:"tomate",n:"Tomate",ref:"libre",kcal:18,p:0.9,c:3.9,g:0.2},
+    {id:"pepino",n:"Pepino",ref:"libre",kcal:15,p:0.6,c:3.6,g:0.1},
+    {id:"berenjena",n:"Berenjena",ref:"libre",kcal:25,p:1,c:6,g:0.2},
+    {id:"coliflor",n:"Coliflor",ref:"libre",kcal:25,p:1.9,c:5,g:0.3},
+    {id:"zanahoria",n:"Zanahoria",ref:"libre",kcal:41,p:0.9,c:10,g:0.2},
+    {id:"cebolla",n:"Cebolla",ref:"libre",kcal:40,p:1.1,c:9.3,g:0.1},
+    {id:"setas",n:"Setas / champiñones",ref:"libre",kcal:22,p:3.1,c:3.3,g:0.3},
+    {id:"alcachofa",n:"Alcachofa",ref:"libre",kcal:47,p:3.3,c:10.5,g:0.2},
+    {id:"puerro",n:"Puerro",ref:"libre",kcal:61,p:1.5,c:14,g:0.3},
+    {id:"acelgas",n:"Acelgas",ref:"libre",kcal:20,p:1.8,c:3.7,g:0.2},
+    {id:"rucula",n:"Rúcula",ref:"libre",kcal:25,p:2.6,c:3.7,g:0.7},
+    {id:"ensalada",n:"Canónigos / mezcla de hojas",ref:"libre",kcal:15,p:1.4,c:2.9,g:0.2},
+    {id:"maiz",n:"Maíz dulce",ref:"cocido",kcal:96,p:3.4,c:21,g:1.5},
+    {id:"remolacha",n:"Remolacha",ref:"cocida",kcal:43,p:1.6,c:9.6,g:0.2},
+    {id:"esparragos",n:"Espárragos",ref:"libre",kcal:20,p:2.2,c:3.7,g:0.1},
+    {id:"apio",n:"Apio",ref:"libre",kcal:16,p:0.7,c:3,g:0.2},
+    {id:"judias_verdes",n:"Judías verdes",ref:"libre",kcal:31,p:1.8,c:7,g:0.1},
+    {id:"pak_choi",n:"Pak choi / col china",ref:"libre",kcal:13,p:1.5,c:2.2,g:0.2},
+  ]},
+  { id:"fruta", nombre:"🍎 Fruta", rol:"fruta", alimentos:[
+    {id:"platano",n:"Plátano (~120 g)",ref:"unidad",kcal:89,p:1.1,c:23,g:0.3},
+    {id:"manzana",n:"Manzana (~150 g)",ref:"unidad",kcal:52,p:0.3,c:14,g:0.2},
+    {id:"naranja",n:"Naranja (~150 g)",ref:"unidad",kcal:47,p:0.9,c:12,g:0.1},
+    {id:"fresas",n:"Fresas",ref:"puñado libre",kcal:32,p:0.7,c:7.7,g:0.3},
+    {id:"arandanos",n:"Arándanos",ref:"puñado libre",kcal:57,p:0.7,c:14,g:0.3},
+    {id:"mango",n:"Mango (100 g)",ref:"porción",kcal:60,p:0.8,c:15,g:0.4},
+    {id:"pera",n:"Pera (~150 g)",ref:"unidad",kcal:57,p:0.4,c:15,g:0.1},
+    {id:"kiwi",n:"Kiwi (~80 g)",ref:"unidad",kcal:61,p:1.1,c:15,g:0.5},
+    {id:"sandia",n:"Sandía",ref:"porción libre",kcal:30,p:0.6,c:7.6,g:0.2},
+    {id:"melon",n:"Melón",ref:"porción libre",kcal:34,p:0.8,c:8,g:0.2},
+    {id:"cereza",n:"Cerezas",ref:"puñado libre",kcal:63,p:1.1,c:16,g:0.2},
+    {id:"ciruela",n:"Ciruelas (2 uds)",ref:"2 unidades",kcal:46,p:0.7,c:11,g:0.3},
+    {id:"melocoton",n:"Melocotón / nectarina",ref:"unidad ~150 g",kcal:42,p:1,c:10,g:0.3},
+    {id:"granada",n:"Granada (media)",ref:"media",kcal:68,p:1.7,c:17,g:1.2},
+    {id:"uva",n:"Uva (puñado)",ref:"puñado libre",kcal:69,p:0.7,c:18,g:0.2},
+  ]},
+  { id:"grasas", nombre:"🥑 Grasas saludables", rol:"grasa", alimentos:[
+    {id:"aove",n:"Aceite de oliva virgen extra",ref:"cuchda ~15 ml",kcal:900,p:0,c:0,g:100},
+    {id:"aguacate",n:"Aguacate",ref:"tal cual",kcal:160,p:2,c:8.5,g:14.7},
+    {id:"almendras",n:"Almendras",ref:"tal cual",kcal:579,p:21,c:22,g:50},
+    {id:"nueces",n:"Nueces",ref:"tal cual",kcal:654,p:15,c:14,g:65},
+    {id:"anacardos",n:"Anacardos",ref:"tal cual",kcal:553,p:18,c:30,g:44},
+    {id:"pistachos",n:"Pistachos",ref:"tal cual",kcal:560,p:20,c:28,g:45},
+    {id:"chia",n:"Semillas de chía",ref:"tal cual",kcal:486,p:17,c:42,g:31},
+    {id:"lino",n:"Semillas de lino molidas",ref:"tal cual",kcal:534,p:18,c:29,g:42},
+    {id:"pipas",n:"Pipas de girasol",ref:"tal cual",kcal:584,p:21,c:20,g:51},
+    {id:"crema_cacahuete",n:"Crema de cacahuete 100%",ref:"tal cual",kcal:588,p:25,c:20,g:50},
+    {id:"crema_almendra",n:"Crema de almendra 100%",ref:"tal cual",kcal:614,p:21,c:20,g:56},
+    {id:"tahini",n:"Tahini (pasta de sésamo)",ref:"tal cual",kcal:595,p:17,c:21,g:54},
+    {id:"aceitunas",n:"Aceitunas",ref:"tal cual",kcal:145,p:1,c:3.8,g:15},
+  ]},
+];
+
+/* ═══════════════════════════════════════════
+   PLATOS CURADOS (combinaciones realistas)
+═══════════════════════════════════════════ */
+// Cada plato define qué grupos de alimentos necesita y un descrip. de 1 línea.
+// "grupos" son IDs de GRUPOS. El algoritmo luego busca qué alimentos tiene el usuario en esos grupos.
+const PLATOS = {
+  desayuno: [
+    { id:"d1", desc:"Porridge cremoso con fruta fresca y un toque de nueces — el desayuno que te aguanta hasta la hora de comer",
+      slots:[{rol:"c",grupos:["cereales"],req:true},{rol:"f",grupos:["fruta"],req:true},{rol:"g",grupos:["grasas"],req:false},{rol:"p",grupos:["lacteos"],req:false}] },
+    { id:"d2", desc:"Tostada de pan integral con aguacate y huevo — el clásico que no falla y que deja con ganas de repetir",
+      slots:[{rol:"c",grupos:["cereales"],req:true},{rol:"p",grupos:["huevo"],req:true},{rol:"g",grupos:["grasas"],req:false}] },
+    { id:"d3", desc:"Bowl de skyr o yogur griego con frutas del tiempo y semillas — rápido, sin cocinar y con más proteína de la que parece",
+      slots:[{rol:"p",grupos:["lacteos"],req:true},{rol:"f",grupos:["fruta"],req:true},{rol:"g",grupos:["grasas"],req:false}] },
+    { id:"d4", desc:"Tortilla de verduras salteadas — proteína desde primera hora con lo que tengas en la nevera",
+      slots:[{rol:"p",grupos:["huevo"],req:true},{rol:"v",grupos:["verdura"],req:true},{rol:"c",grupos:["cereales"],req:false}] },
+    { id:"d5", desc:"Batido de proteína con plátano y avena — listo en 2 minutos, con energía para horas",
+      slots:[{rol:"p",grupos:["proteina_vegetal","lacteos"],req:true},{rol:"c",grupos:["cereales"],req:true},{rol:"f",grupos:["fruta"],req:true}] },
+    { id:"d6", desc:"Tostada de pan de centeno con salmón ahumado y aguacate — desayuno de lujo en 5 minutos",
+      slots:[{rol:"c",grupos:["cereales"],req:true},{rol:"p",grupos:["pescado"],req:true},{rol:"g",grupos:["grasas"],req:false}] },
+    { id:"d7", desc:"Muesli con bebida vegetal, fruta y crema de cacahuete — el desayuno que tú montas sin cocinar nada",
+      slots:[{rol:"c",grupos:["cereales"],req:true},{rol:"p",grupos:["lacteos","proteina_vegetal"],req:false},{rol:"f",grupos:["fruta"],req:true},{rol:"g",grupos:["grasas"],req:false}] },
+  ],
+  almuerzo: [
+    { id:"a1", desc:"Fruta de temporada con un puñado de frutos secos — el snack que cuida y sacia sin pasarte",
+      slots:[{rol:"f",grupos:["fruta"],req:true},{rol:"g",grupos:["grasas"],req:true}] },
+    { id:"a2", desc:"Yogur con arándanos y una pizca de canela — pequeño, fresco y con proteína de fondo",
+      slots:[{rol:"p",grupos:["lacteos"],req:true},{rol:"f",grupos:["fruta"],req:true}] },
+    { id:"a3", desc:"Tostada de centeno con hummus casero — el snack vegetal que sacia sin hacerte pesado/a",
+      slots:[{rol:"c",grupos:["cereales"],req:true},{rol:"p",grupos:["legumbres"],req:true}] },
+    { id:"a4", desc:"Edamame con sal marina — crujiente, proteico y japonés; el snack de los que saben lo que hacen",
+      slots:[{rol:"p",grupos:["proteina_vegetal"],req:true}] },
+    { id:"a5", desc:"Tortitas de arroz con crema de almendra — sin gluten, sin excusas y con energía para la tarde",
+      slots:[{rol:"c",grupos:["cereales"],req:true},{rol:"g",grupos:["grasas"],req:true}] },
+  ],
+  comida: [
+    { id:"c1", desc:"Lentejas estofadas con arroz integral y verduras de temporada — el plato que nutre de verdad, sin necesitar carne",
+      slots:[{rol:"p",grupos:["legumbres"],req:true},{rol:"c",grupos:["cereales","tuberculos"],req:true},{rol:"v",grupos:["verdura"],req:true},{rol:"g",grupos:["grasas"],req:false}] },
+    { id:"c2", desc:"Pollo al limón con boniato asado y verduras al vapor — sencillo, limpio y con todo lo que tu cuerpo necesita",
+      slots:[{rol:"p",grupos:["carne"],req:true},{rol:"c",grupos:["tuberculos"],req:true},{rol:"v",grupos:["verdura"],req:true},{rol:"g",grupos:["grasas"],req:false}] },
+    { id:"c3", desc:"Pasta integral con tofu salteado, pimiento y salsa de tomate — la pasta que sí puedes comer cuando sabes cómo hacerla",
+      slots:[{rol:"c",grupos:["cereales"],req:true},{rol:"p",grupos:["proteina_vegetal"],req:true},{rol:"v",grupos:["verdura"],req:true}] },
+    { id:"c4", desc:"Salmón al horno con quinoa y espárragos — elegante sin esfuerzo, y con unos omegas que querrás en cada comida",
+      slots:[{rol:"p",grupos:["pescado"],req:true},{rol:"c",grupos:["cereales"],req:true},{rol:"v",grupos:["verdura"],req:true}] },
+    { id:"c5", desc:"Garbanzos con espinacas y huevo escalfado — proteína triple (legumbre + huevo), sabor redondo y listo en 15 minutos",
+      slots:[{rol:"p",grupos:["legumbres","huevo"],req:true},{rol:"v",grupos:["verdura"],req:true},{rol:"g",grupos:["grasas"],req:false}] },
+    { id:"c6", desc:"Merluza a la plancha con patata al vapor y pisto de temporada — ligero, mediterráneo y que sabe a casa",
+      slots:[{rol:"p",grupos:["pescado"],req:true},{rol:"c",grupos:["tuberculos"],req:true},{rol:"v",grupos:["verdura"],req:true}] },
+    { id:"c7", desc:"Wok de tempeh con arroz integral y brócoli al ajoaceite — energético, vegetal y con un punto oriental que engancha",
+      slots:[{rol:"p",grupos:["proteina_vegetal"],req:true},{rol:"c",grupos:["cereales"],req:true},{rol:"v",grupos:["verdura"],req:true}] },
+    { id:"c8", desc:"Ensalada de garbanzos, atún y aguacate con pan de centeno — fresca, saciante y sin encender el fuego",
+      slots:[{rol:"p",grupos:["legumbres","pescado"],req:true},{rol:"g",grupos:["grasas"],req:true},{rol:"c",grupos:["cereales"],req:false},{rol:"v",grupos:["verdura"],req:true}] },
+    { id:"c9", desc:"Quinoa con verduras asadas y tofu marinado — colorido, lleno de textura y que deja saciado/a de verdad",
+      slots:[{rol:"c",grupos:["cereales"],req:true},{rol:"p",grupos:["proteina_vegetal"],req:true},{rol:"v",grupos:["verdura"],req:true}] },
+    { id:"c10", desc:"Pechuga de pavo rellena de espinacas con arroz y zanahorias al vapor — el clásico reinventado para no aburrirte",
+      slots:[{rol:"p",grupos:["carne"],req:true},{rol:"c",grupos:["cereales"],req:true},{rol:"v",grupos:["verdura"],req:true}] },
+  ],
+  merienda: [
+    { id:"m1", desc:"Manzana con crema de cacahuete natural — el dúo que da energía y sacia para llegar bien a cenar",
+      slots:[{rol:"f",grupos:["fruta"],req:true},{rol:"g",grupos:["grasas"],req:true}] },
+    { id:"m2", desc:"Queso batido con canela y frutos rojos — dulce sin ser dulce, y con proteína sin que se note",
+      slots:[{rol:"p",grupos:["lacteos"],req:true},{rol:"f",grupos:["fruta"],req:true}] },
+    { id:"m3", desc:"Tortitas de arroz con aguacate y sal en escamas — crujiente, fresco y que no pesa en la tarde",
+      slots:[{rol:"c",grupos:["cereales"],req:true},{rol:"g",grupos:["grasas"],req:true}] },
+    { id:"m4", desc:"Kéfir con plátano y semillas de chía — probióticos, potasio y omega-3 en un vaso; tu merienda más inteligente",
+      slots:[{rol:"p",grupos:["lacteos"],req:true},{rol:"f",grupos:["fruta"],req:true},{rol:"g",grupos:["grasas"],req:false}] },
+    { id:"m5", desc:"Un puñado de nueces con una pieza de fruta de temporada — 5 segundos de preparación, resultados de horas",
+      slots:[{rol:"g",grupos:["grasas"],req:true},{rol:"f",grupos:["fruta"],req:true}] },
+  ],
+  cena: [
+    { id:"ce1", desc:"Crema de calabacín suave con huevo pochado y tostada integral — reconfortante, ligera y con proteína para la noche",
+      slots:[{rol:"v",grupos:["verdura"],req:true},{rol:"p",grupos:["huevo"],req:true},{rol:"c",grupos:["cereales"],req:false}] },
+    { id:"ce2", desc:"Ensalada de atún con aguacate, tomate y rúcula — fresca, saciante y sin cocinar nada en absoluto",
+      slots:[{rol:"p",grupos:["pescado"],req:true},{rol:"g",grupos:["grasas"],req:true},{rol:"v",grupos:["verdura"],req:true}] },
+    { id:"ce3", desc:"Tortilla francesa de setas y espárragos con ensalada — vegetal, rápida y con el sabor de lo hecho en casa",
+      slots:[{rol:"p",grupos:["huevo"],req:true},{rol:"v",grupos:["verdura"],req:true}] },
+    { id:"ce4", desc:"Sopa de miso con tofu sedoso y verduras — japonesa, calentita y que cuida la microbiota sin darte cuenta",
+      slots:[{rol:"p",grupos:["proteina_vegetal"],req:true},{rol:"v",grupos:["verdura"],req:true}] },
+    { id:"ce5", desc:"Merluza al papillote con limón y verduras al vapor — la cena que deja el hígado feliz y el cuerpo descansado",
+      slots:[{rol:"p",grupos:["pescado"],req:true},{rol:"v",grupos:["verdura"],req:true}] },
+    { id:"ce6", desc:"Revuelto de setas con espinacas y pan de centeno — la cena de los días sin ganas: lista en 10 minutos y rica de verdad",
+      slots:[{rol:"p",grupos:["huevo"],req:true},{rol:"v",grupos:["verdura"],req:true},{rol:"c",grupos:["cereales"],req:false}] },
+    { id:"ce7", desc:"Garbanzos al curry con leche de coco y espinacas — especiado, vegetal y sorprendentemente saciante",
+      slots:[{rol:"p",grupos:["legumbres"],req:true},{rol:"v",grupos:["verdura"],req:true}] },
+    { id:"ce8", desc:"Pechuga de pollo con pisto de verduras y aguacate — la cena ligera que mantiene el músculo sin cargar el estómago",
+      slots:[{rol:"p",grupos:["carne"],req:true},{rol:"v",grupos:["verdura"],req:true},{rol:"g",grupos:["grasas"],req:false}] },
+  ],
+};
+
+/* ═══════════════════════════════════════════
+   CONSTANTES
+═══════════════════════════════════════════ */
+const TABS = [
+  {id:"fase1", label:"📊 Tu objetivo"},
+  {id:"progreso", label:"📈 Progreso"},
+  {id:"menu", label:"🍽️ Menú semanal"},
+  {id:"recetario", label:"📖 Recetario"},
+];
+const DIAS = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
+const COMIDAS_DIA = ["desayuno","almuerzo","comida","merienda","cena"];
+const COMIDA_EMOJI = {desayuno:"🌅",almuerzo:"☀️",comida:"🍽️",merienda:"🍵",cena:"🌙"};
+const COMIDA_LABEL = {desayuno:"Desayuno",almuerzo:"Media mañana",comida:"Comida",merienda:"Merienda",cena:"Cena"};
+const REPARTO_KCAL = {desayuno:0.2,almuerzo:0.1,comida:0.35,merienda:0.1,cena:0.25};
+const FACTORES_NEAT = [
+  {id:"sedentario",f:0,label:"Trabajo sentado, sin ejercicio",desc:"Paso el día en silla — el deporte lo añado con el slider"},
+  {id:"pie",f:0.1,label:"Trabajo de pie / activo",desc:"Paso muchas horas moviéndome aunque no haga deporte formal"},
+];
+const FRASES = [
+  "No buscamos la perfección. Buscamos la consistencia. Son cosas muy distintas.",
+  "Un día flojo no borra semanas de esfuerzo. ¡Sigue adelante!",
+  "Tu cuerpo cambia por lo que haces la mayoría del tiempo.",
+  "Las pequeñas mejoras se acumulan. Un 1% mejor cada día es un 37% mejor al año.",
+  "Esto no es una dieta. Es aprender a cuidarte de por vida.",
+  "Cada decisión saludable es un voto a favor de quien quieres ser.",
+  "Lo estás haciendo genial. Confía en el proceso.",
+];
+
+/* ═══════════════════════════════════════════
+   CÁLCULOS
+═══════════════════════════════════════════ */
+function calcTMB(sexo,peso,altura,edad){
+  const b=10*peso+6.25*altura-5*edad;
+  return sexo==="hombre"?b+5:b-161;
+}
+// TDEE con horas de deporte:
+// Base sedentaria (1.2) = NEAT mínimo para funciones básicas del día
+// Cada hora de deporte/semana aporta aprox. 35 kcal adicionales / kcal de TMB,
+// equivalente a sumar un 3.5% del TMB por hora a la semana.
+// Factor resultante: 1.2 (0 h) → 1.375 (5 h) → 1.55 (10 h) → 1.9 (20 h)
+function calcTDEE(tmb,horasDeporte,trabajoPie){
+  const extra = trabajoPie ? 0.1 : 0;
+  return tmb*(1.2 + extra + Math.min(horasDeporte*0.035, 0.7));
+}
+function calcIMC(peso,alturaCm){const m=alturaCm/100;return peso/(m*m);}
+function clasifIMC(imc){
+  if(imc<18.5)return{t:"Por debajo de tu rango habitual",c:"info"};
+  if(imc<25)return{t:"Dentro del rango saludable ✨",c:"bien"};
+  if(imc<30)return{t:"Algo por encima del rango saludable",c:"alerta"};
+  return{t:"Bastante por encima del rango saludable",c:"alerta"};
+}
+function calcGrasa({sexo,cintura,cadera,cuello,alturaCm}){
+  if(sexo==="hombre"){const d=cintura-cuello;if(d<=0)return null;return 495/(1.0324-0.19077*Math.log10(d)+0.15456*Math.log10(alturaCm))-450;}
+  const s=cintura+cadera-cuello;if(s<=0)return null;
+  return 495/(1.29579-0.35004*Math.log10(s)+0.221*Math.log10(alturaCm))-450;
+}
+function clasifGrasa(sexo,pct){
+  const t=sexo==="hombre"
+    ?[[0,6,"Muy baja"],[6,14,"Atlética 🏆"],[14,18,"En forma 💪"],[18,25,"Aceptable"],[25,99,"Alta"]]
+    :[[0,14,"Muy baja"],[14,21,"Atlética 🏆"],[21,25,"En forma 💪"],[25,32,"Aceptable"],[32,99,"Alta"]];
+  return t.find(([a,b])=>pct>=a&&pct<b)?.[2]??"—";
+}
+function calcICC(c,ca){return c/ca;}
+function clasifICC(sexo,icc){
+  return icc<=(sexo==="hombre"?0.9:0.85)?{t:"Distribución saludable de la grasa ✨",c:"bien"}:{t:"Hay algo de grasa abdominal a vigilar",c:"alerta"};
+}
+function simbolo(actual,anterior){
+  if(anterior==null)return"→";
+  const d=actual-anterior;
+  if(Math.abs(d)<0.3)return"→";
+  return d<0?"↓":"↑";
+}
+function perdStr(v){return v<1?`${Math.round(v*1000)} g`:`${v.toFixed(2)} kg`;}
+
+/* ═══════════════════════════════════════════
+   GENERACIÓN MENÚ (usando PLATOS curados)
+═══════════════════════════════════════════ */
+async function generarDiaConIA(diaNombre,macros,kcalObj,sels,habitos,actDia){
+  const porRol={proteina:[],carbohidrato:[],grasa:[],verdura:[],fruta:[]};
+  GRUPOS.forEach(g=>g.alimentos.forEach(a=>{
+    if(sels[a.id])porRol[g.rol]?.push(a.n||a.nombre);
+  }));
+
+  const restr=[];
+  if(habitos.veggie)restr.push("vegetariana");
+  if(habitos.noCarne)restr.push("sin carne");
+  if(habitos.noPescado)restr.push("sin pescado");
+  if(habitos.sinLacteos)restr.push("sin lácteos");
+  if(habitos.libre)restr.push(habitos.libre);
+
+  const actStr=actDia&&actDia.intens!=="ninguna"
+    ?`Hoy hay entreno ${actDia.intens}${actDia.horas?` de ${actDia.horas}h`:""}. Añade algo más de hidrato en la comida/cena previa o posterior al entreno.`
+    :"Día de descanso. Puedes bajar un poco los hidratos.";
+
+  const kcalStr=Object.entries(REPARTO_KCAL).map(([c,p])=>
+    `${COMIDA_LABEL[c]}: ${Math.round(kcalObj*p)} kcal, ${Math.round(macros.proteina*p)}g prot, ${Math.round(macros.carbohidrato*p)}g carbo, ${Math.round(macros.grasa*p)}g grasa`
+  ).join("\n");
+
+  const sys=`Eres cocinero mediterráneo y nutricionista. Respondes SOLO con JSON válido, sin markdown, sin texto extra.
+Formato: {"desayuno":[...],"almuerzo":[...],"comida":[...],"merienda":[...],"cena":[...]}
+Cada comida tiene 2 opciones: [{"n":"Nombre","desc":"Frase apetecible ≤15 palabras","i":[{"n":"Alimento","g":80,"r":"seco/cocinado/tal cual","m":"Xg proteína"}]}]
+REGLAS:
+- Desayuno/almuerzo: avena, tostadas, yogur, fruta, huevo. NUNCA carne ni pescado.
+- Merienda: snack ligero (fruta, yogur, frutos secos).
+- Comida: proteína + hidrato + verdura.
+- Cena: proteína + verdura (pocos hidratos salvo día de entreno).
+- NO repetir la misma proteína principal en el mismo día.
+- desc: UNA frase que dé ganas de comerlo, no liste ingredientes.
+- 3-4 ingredientes por plato.`;
+
+  const msg=`Día: ${diaNombre}. ${actStr}
+Proteínas disponibles: ${porRol.proteina.join(", ")||"huevo, legumbres"}
+Carbohidratos: ${porRol.carbohidrato.join(", ")||"avena, arroz, patata"}
+Grasas: ${porRol.grasa.join(", ")||"aceite de oliva"}
+Verduras: ${porRol.verdura.join(", ")||"brócoli, espinaca"}
+Fruta: ${porRol.fruta.join(", ")||"plátano, manzana"}
+${restr.length?`Restricciones: ${restr.join(", ")}`:""}
+Objetivos kcal:
+${kcalStr}`;
+
+  const res=await fetch("https://api.anthropic.com/v1/messages",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:2000,system:sys,messages:[{role:"user",content:msg}]})
+  });
+  if(!res.ok)throw new Error(`API ${res.status}`);
+  const data=await res.json();
+  const txt=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("").replace(/```json|```/g,"").trim();
+  const parsed=JSON.parse(txt);
+
+  // Mapear respuesta de la IA a estructura interna
+  const comidasIA={};
+  Object.entries(parsed).forEach(([c,ops])=>{
+    comidasIA[c]=(ops||[]).map(op=>({
+      nombre:op.n,
+      descripcion:op.desc,
+      ingredientes:(op.i||[]).map(ing=>({nombre:ing.n,gramos:ing.g,ref:ing.r,macroLabel:ing.m})),
+      guardado:false,
+    }));
+  });
+
+  // Recalcular gramos desde BD para garantizar exactitud de macros
+  const comidasFinales=recalcularGramos(comidasIA,macros);
+
+  return{nombre:diaNombre,comidas:comidasFinales};
+}
+
+/* ═══════════════════════════════════════════
+   API CLAUDE (con loop para web_search)
+═══════════════════════════════════════════ */
+async function llamarClaudeBasico(messages,system){
+  const res=await fetch("https://api.anthropic.com/v1/messages",{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system,messages})
+  });
+  if(!res.ok)throw new Error(`API ${res.status}`);
+  const d=await res.json();
+  return(d.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
+}
+
+async function llamarClaudeConSearch(userContent,system){
+  let messages=[{role:"user",content:userContent}];
+  for(let i=0;i<8;i++){
+    const res=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        model:"claude-sonnet-4-6",max_tokens:2000,system,messages,
+        tools:[{type:"web_search_20250305",name:"web_search"}]
+      })
+    });
+    if(!res.ok)throw new Error(`API ${res.status}`);
+    const data=await res.json();
+    if(data.stop_reason==="end_turn"){
+      return(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
+    }
+    if(data.stop_reason==="tool_use"){
+      messages.push({role:"assistant",content:data.content});
+      const toolResults=(data.content||[]).filter(b=>b.type==="tool_use").map(b=>({
+        type:"tool_result",tool_use_id:b.id,content:""
+      }));
+      if(toolResults.length)messages.push({role:"user",content:toolResults});
+      else break;
+      continue;
+    }
+    const txt=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
+    if(txt)return txt;
+    break;
+  }
+  return null;
+}
+
+// getDescripcionPlato eliminada — la IA genera nombre + descripción + ingredientes en un solo paso en generarDiaConIA
+
+/* Recalcula los gramos de cada ingrediente usando la BD nutricional.
+   La IA elige QUÉ alimentos usar; nosotros calculamos CUÁNTO hace falta
+   para cumplir exactamente el objetivo de proteína/carbo/grasa de esa comida. */
+function recalcularGramos(comidasIA, macros) {
+  const resultado = {};
+  COMIDAS_DIA.forEach(c => {
+    const pct = REPARTO_KCAL[c] || 0.2;
+    const tP  = macros.proteina      * pct;
+    const tC  = macros.carbohidrato  * pct;
+    const tG  = macros.grasa         * pct;
+
+    resultado[c] = (comidasIA[c] || []).map(op => {
+      let protAsignada = false, carboAsignado = false, grasaAsignada = false;
+
+      const ingredientesCalc = (op.ingredientes || []).map(ing => {
+        // Buscar en BD por coincidencia parcial (la IA usa los nombres que le dimos)
+        let alBD = null; let grupoBD = null;
+        for (const gr of GRUPOS) {
+          const encontrado = gr.alimentos.find(a => {
+            const nb = (a.n || '').toLowerCase();
+            const ni = (ing.nombre || '').toLowerCase();
+            return nb === ni || nb.includes(ni) || ni.includes(nb);
+          });
+          if (encontrado) { alBD = encontrado; grupoBD = gr; break; }
+        }
+        if (!alBD) return ing; // especias, condimentos → dejar como está
+
+        let gramos = ing.gramos;
+        let macroLabel = ing.macroLabel;
+
+        if (grupoBD.rol === 'proteina' && alBD.p > 0 && !protAsignada) {
+          gramos = Math.round((tP / alBD.p) * 100);
+          macroLabel = `${Math.round(tP)} g prot.`;
+          protAsignada = true;
+        } else if (grupoBD.rol === 'carbohidrato' && alBD.c > 0 && !carboAsignado) {
+          gramos = Math.round((tC / alBD.c) * 100);
+          macroLabel = `${Math.round(tC)} g carbo`;
+          carboAsignado = true;
+        } else if (grupoBD.rol === 'grasa' && alBD.g > 0 && !grasaAsignada) {
+          gramos = Math.round((tG / alBD.g) * 100);
+          macroLabel = `${Math.round(tG)} g grasa`;
+          grasaAsignada = true;
+        } else if (grupoBD.rol === 'verdura') {
+          gramos = null; macroLabel = 'al gusto (libre)';
+        } else if (grupoBD.rol === 'fruta') {
+          gramos = null; macroLabel = '1 pieza';
+        }
+
+        return { ...ing, gramos, macroLabel, ref: alBD.ref || ing.ref };
+      });
+
+      return { ...op, ingredientes: ingredientesCalc };
+    });
+  });
+  return resultado;
+}
+
+async function adaptarReceta(url,kcalObj,macros,peso,alimentosNombres){
+  const sys=`Eres nutricionista y cocinero experto. Respondes SOLO en JSON sin markdown ni \`\`\`.\nFormato: {"nombre":"...","descripcion_original":"...","twists":["...","..."],"ingredientes_adaptados":[{"nombre":"...","gramos":0,"ref":"...","macro_label":"..."}],"instrucciones":"...","nota_motivacional":"..."}`;
+  const msg=`Receta: ${url}
+Mi objetivo: ${Math.round(kcalObj)} kcal/día. Para una comida principal (35% del total):
+proteína ${Math.round(macros.proteina*0.35)}g, carbohidratos ${Math.round(macros.carbohidrato*0.35)}g, grasa ${Math.round(macros.grasa*0.35)}g. Peso corporal: ${peso}kg.
+Alimentos que me gustan: ${alimentosNombres.slice(0,15).join(", ")}.
+Busca la receta en internet. Adáptala a mis macros con ingredientes reales. Sugiere 2-3 twists saludables (ej: cambiar pasta normal por pasta de legumbres, nata por yogur griego...). Instrucciones claras y sencillas. Nota motivacional breve al final.`;
+  try{
+    const t=await llamarClaudeConSearch(msg,sys);
+    if(!t)return null;
+    return JSON.parse(t.replace(/```json|```/g,"").trim());
+  }catch{return null;}
+}
+
+/* ═══════════════════════════════════════════
+   STORAGE
+═══════════════════════════════════════════ */
+async function loadS(key,fb){
+  try{const r=await window.storage.get(key);return r?JSON.parse(r.value):fb;}catch{return fb;}
+}
+async function saveS(key,val){
+  try{await window.storage.set(key,JSON.stringify(val));}catch{}
+}
+
+/* ═══════════════════════════════════════════
+   UI BASE
+═══════════════════════════════════════════ */
+const Card=({children,cls=""})=><div className={`rounded-2xl border border-stone-200 bg-white p-5 shadow-sm ${cls}`}>{children}</div>;
+const Expl=({children})=><p className="mt-2 text-sm leading-relaxed text-stone-500">{children}</p>;
+const Lbl=({children})=><label className="block text-sm font-medium text-stone-700 mb-1">{children}</label>;
+const Inp=({className:cls="",...p})=><input {...p} className={`w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-stone-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-100 ${cls}`}/>;
+const Sel=({className:cls="",children,...p})=><select {...p} className={`rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm focus:border-emerald-600 focus:outline-none ${cls||"w-full"}`}>{children}</select>;
+
+function PasoHdr({n,total,titulo}){
+  return (<div className="flex items-center gap-3 mb-1">
+    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-700 text-xs font-semibold text-white">{n}</span>
+    <h3 className="font-serif text-lg text-stone-900">{titulo}</h3>
+    <span className="ml-auto text-xs text-stone-400">{n}/{total}</span>
+  </div>);
+}
+function MacroBar({nombre,gramos,kcal,pct,color}){
+  return (<div>
+    <div className="flex items-baseline justify-between text-sm">
+      <span className="font-medium text-stone-700">{nombre}</span>
+      <span className="text-stone-500">{Math.round(gramos)}g · {Math.round(kcal)} kcal · {pct}%</span>
+    </div>
+    <div className="mt-1 h-2.5 w-full overflow-hidden rounded-full bg-stone-100">
+      <div className={`h-full rounded-full ${color}`} style={{width:`${pct}%`}}/>
+    </div>
+  </div>);
+}
+function FraseDia(){
+  const f=useMemo(()=>FRASES[Math.floor(Math.random()*FRASES.length)],[]);
+  return (<p className="text-xs italic text-emerald-700 border-l-2 border-emerald-300 pl-3 mt-3">{f}</p>);
+}
+function NavButtons({prev,next,prevLabel="← Anterior",nextLabel="Siguiente →"}){
+  return (<div className="flex gap-3 mt-2 pb-2">
+    {prev&&<button onClick={prev} className="rounded-full border border-stone-300 px-5 py-2 text-sm font-medium text-stone-600 hover:border-emerald-400 transition">{prevLabel}</button>}
+    {next&&<button onClick={next} className="rounded-full bg-emerald-700 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-800 transition">{nextLabel}</button>}
+  </div>);
+}
+
+/* ═══════════════════════════════════════════
+   GRÁFICA DE PROGRESO
+═══════════════════════════════════════════ */
+function GraficaProgreso({entradas}){
+  const[detalle,setDetalle]=useState(null);
+  if(!entradas||entradas.length<2)return(
+    <div className="rounded-xl bg-stone-50 border border-stone-200 p-4 text-center text-sm text-stone-400">
+      Registra al menos 2 mediciones para ver tu tendencia aquí 📊
+    </div>
+  );
+  const n=entradas.length, W=560, H=110, pad=36;
+  const xs=entradas.map((_,i)=>pad+(i/(n-1))*(W-pad*2));
+  const mapa={"↓":H-16,"→":H/2,"↑":16};
+  const points=entradas.map((e,i)=>({x:xs[i],y:mapa[e.simbolo]||H/2,...e}));
+  const pathD=points.map((p,i)=>`${i===0?"M":"L"} ${p.x} ${p.y}`).join(" ");
+  return(
+    <div>
+      <p className="text-xs text-stone-400 mb-2">Toca un punto para ver el dato exacto.</p>
+      <svg viewBox={`0 0 ${W} ${H+28}`} className="w-full">
+        <path d={pathD} fill="none" stroke="#d1fae5" strokeWidth="2"/>
+        {points.map((p,i)=>(
+          <g key={i} onClick={()=>setDetalle(detalle?.i===i?null:{...p,i})} className="cursor-pointer">
+            <circle cx={p.x} cy={p.y} r="15" fill={p.simbolo==="↓"?"#d1fae5":p.simbolo==="→"?"#fef3c7":"#fee2e2"} stroke={p.simbolo==="↓"?"#10b981":p.simbolo==="→"?"#f59e0b":"#ef4444"} strokeWidth="1.5"/>
+            <text x={p.x} y={p.y+5} textAnchor="middle" fontSize="13" fill={p.simbolo==="↓"?"#059669":p.simbolo==="→"?"#d97706":"#dc2626"}>{p.simbolo}</text>
+            <text x={p.x} y={H+22} textAnchor="middle" fontSize="9" fill="#a8a29e">{new Date(p.fecha).toLocaleDateString("es-ES",{day:"2-digit",month:"2-digit"})}</text>
+          </g>
+        ))}
+      </svg>
+      {detalle&&(
+        <div className="mt-2 rounded-xl bg-stone-50 border border-stone-200 p-3 text-sm">
+          <span className="font-medium">{new Date(detalle.fecha).toLocaleDateString("es-ES",{day:"2-digit",month:"long"})}</span>
+          <span className="ml-2 text-stone-500">
+            Peso: {detalle.peso} kg · IMC: {detalle.imc?.toFixed(1)}{detalle.grasa!=null?` · Grasa: ${detalle.grasa.toFixed(1)}%`:""}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════
+   CARD DE PLATO
+═══════════════════════════════════════════ */
+function calcularMacrosPlato(ingredientes){
+  let p=0,c=0,g=0,kcal=0;
+  (ingredientes||[]).forEach(ing=>{
+    if(!ing.gramos)return;
+    for(const grupo of GRUPOS){
+      const al=grupo.alimentos.find(a=>(a.n||"").toLowerCase()===(ing.nombre||"").toLowerCase()||(a.n||"").toLowerCase().includes((ing.nombre||"").toLowerCase()));
+      if(al){
+        const f=ing.gramos/100;
+        p+=al.p*f; c+=al.c*f; g+=al.g*f; kcal+=al.kcal*f;
+        break;
+      }
+    }
+  });
+  return{p:Math.round(p),c:Math.round(c),g:Math.round(g),kcal:Math.round(kcal)};
+}
+
+function PlatoCard({opcion,onGuardar}){
+  const[exp,setExp]=useState(false);
+  if(!opcion)return null;
+  const totales=calcularMacrosPlato(opcion.ingredientes);
+  return (
+    <div className="rounded-xl border border-stone-200 bg-white overflow-hidden">
+      <div className="p-4">
+        <p className="font-serif text-base text-stone-900 leading-snug">{opcion.nombre||"Plato del día"}</p>
+        {opcion.descripcion&&(
+          <p className="mt-1 text-sm italic text-stone-500 leading-relaxed">{opcion.descripcion}</p>
+        )}
+        {/* Resumen de macros calculado desde BD */}
+        <div className="flex gap-3 mt-2 text-xs">
+          <span className="text-rose-600 font-medium">{totales.p}g prot.</span>
+          <span className="text-sky-600 font-medium">{totales.c}g carbo</span>
+          <span className="text-amber-600 font-medium">{totales.g}g grasa</span>
+          <span className="text-stone-400">{totales.kcal} kcal</span>
+        </div>
+        <div className="flex gap-2 mt-3 flex-wrap">
+          <button onClick={()=>setExp(!exp)} className="rounded-full border border-stone-200 px-3 py-1 text-xs text-stone-500 hover:border-emerald-300 transition">
+            {exp?"▲ Ocultar":"▼ Ingredientes y cantidades"}
+          </button>
+          <button onClick={onGuardar} className={`rounded-full border px-3 py-1 text-xs transition ${opcion.guardado?"border-rose-300 bg-rose-50 text-rose-600":"border-stone-200 text-stone-500 hover:border-rose-300 hover:text-rose-500"}`}>
+            {opcion.guardado?"♥ Guardada":"♡ Guardar receta"}
+          </button>
+        </div>
+      </div>
+      {exp&&(
+        <div className="border-t border-stone-100 bg-stone-50 px-4 py-3">
+          <ul className="space-y-1.5">
+            {(opcion.ingredientes||[]).map((ing,i)=>{
+              const nombre=ing.nombre||ing.n||"";
+              const ref=ing.ref||"";
+              const gramos=ing.gramos;
+              return(
+                <li key={i} className="flex justify-between text-sm">
+                  <span className="text-stone-700">
+                    {nombre}
+                    {gramos
+                      ?<span className="text-stone-400"> — {gramos} g <span className="text-stone-400 text-xs">({ref})</span></span>
+                      :<span className="text-stone-400"> — {ref}</span>
+                    }
+                  </span>
+                  <span className="text-xs text-stone-400 ml-3 whitespace-nowrap">{ing.macroLabel||ing.m||""}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════
+   APP PRINCIPAL
+═══════════════════════════════════════════ */
+function App(){
+  const[tab,setTab]=useState("fase1");
+
+  /* ── Fase 1 ── */
+  const[sexo,setSexo]=useState("mujer");
+  const[peso,setPeso]=useState("");
+  const[altura,setAltura]=useState("");
+  const[edad,setEdad]=useState("");
+  const[horasDeporte,setHorasDeporte]=useState(0);
+  const[trabajoPie,setTrabajoPie]=useState(false);
+  const[deficit,setDeficit]=useState(15);
+  const[gPKg,setGPKg]=useState(1.8);
+  const[pctG,setPctG]=useState(25);
+
+  const pesoN=parseFloat(peso)||0, altN=parseFloat(altura)||0, edadN=parseFloat(edad)||0;
+  const datosOk=pesoN>0&&altN>0&&edadN>0;
+  const tmb=useMemo(()=>datosOk?calcTMB(sexo,pesoN,altN,edadN):0,[sexo,pesoN,altN,edadN,datosOk]);
+  const tdee=useMemo(()=>datosOk?calcTDEE(tmb,horasDeporte,trabajoPie):0,[tmb,horasDeporte,trabajoPie,datosOk]);
+  const kcalObj=tdee*(1-deficit/100);
+  const gProteina=pesoN*gPKg, kcalProt=gProteina*4;
+  const pctProt=kcalObj>0?Math.round((kcalProt/kcalObj)*100):0;
+  const kcalGrasa=kcalObj*(pctG/100), gGrasa=kcalGrasa/9;
+  const pctCarbo=100-pctProt-pctG, kcalCarbo=kcalObj*(pctCarbo/100), gCarbo=kcalCarbo/4;
+  const macros={proteina:gProteina,carbohidrato:gCarbo,grasa:gGrasa};
+
+  /* ── Progreso ── */
+  const[progreso,setProgreso]=useState([]);
+  const[med,setMed]=useState({sexo:"mujer",peso:"",altura:"",cintura:"",cadera:"",cuello:""});
+  const[medGuardada,setMedGuardada]=useState(false);
+
+  /* ── Menú ── */
+  const[habitos,setHabitos]=useState({veggie:false,noCarne:false,noPescado:false,sinLacteos:false,libre:""});
+  const[sels,setSels]=useState({});
+  const[menuDias,setMenuDias]=useState({});
+  const[diasCargando,setDiasCargando]=useState({});
+  const[menuIniciado,setMenuIniciado]=useState(false);
+  const[menuError,setMenuError]=useState("");
+  const[actDias,setActDias]=useState(()=>DIAS.map(()=>({intens:"ninguna",horas:""})));
+  const[diaActivo,setDiaActivo]=useState(0);
+  const[opElegida,setOpElegida]=useState({});
+  const[alimentoCustom,setAlimentoCustom]=useState({n:"",rol:"proteina",kcal:"",p:"",c:"",g:"",ref:"tal cual"});
+  const[customAlimentos,setCustomAlimentos]=useState([]);
+  const[mostrarFormCustom,setMostrarFormCustom]=useState(false);
+
+  /* ── Recetario ── */
+  const[recetario,setRecetario]=useState([]);
+  const[verReceta,setVerReceta]=useState(null);
+  const[urlReceta,setUrlReceta]=useState("");
+  const[cargandoURL,setCargandoURL]=useState(false);
+  const[recetaAdaptada,setRecetaAdaptada]=useState(null);
+  const[errorReceta,setErrorReceta]=useState("");
+  const[notaActual,setNotaActual]=useState({});
+
+  useEffect(()=>{
+    loadS("progreso",[]).then(setProgreso);
+    loadS("recetario",[]).then(setRecetario);
+    loadS("customAlimentos",[]).then(setCustomAlimentos);
+    loadS("sels",{}).then(setSels);
+    loadS("habitos",{veggie:false,noCarne:false,noPescado:false,sinLacteos:false,libre:""}).then(setHabitos);
+  },[]);
+  useEffect(()=>{saveS("progreso",progreso);},[progreso]);
+  useEffect(()=>{saveS("recetario",recetario);},[recetario]);
+  useEffect(()=>{saveS("customAlimentos",customAlimentos);},[customAlimentos]);
+  useEffect(()=>{saveS("sels",sels);},[sels]);
+  useEffect(()=>{saveS("habitos",habitos);},[habitos]);
+
+  /* ─── Grupos visibles según hábitos ─── */
+  const gruposVisibles=useMemo(()=>GRUPOS.filter(g=>{
+    if(g.id==="carne"&&(habitos.veggie||habitos.noCarne))return false;
+    if(g.id==="pescado"&&(habitos.veggie||habitos.noPescado))return false;
+    if(g.id==="lacteos"&&habitos.sinLacteos)return false;
+    return true;
+  }),[habitos]);
+
+  const todosLosAlimentos=useMemo(()=>{
+    const base=gruposVisibles.flatMap(g=>g.alimentos);
+    return [...base,...customAlimentos];
+  },[gruposVisibles,customAlimentos]);
+
+  // Grupos que sí existen pero el usuario no ha marcado nada
+  const gruposSinElegir=useMemo(()=>gruposVisibles.filter(g=>
+    !g.alimentos.some(a=>sels[a.id])&&!customAlimentos.some(a=>sels[a.id]&&a.rol===g.rol)
+  ),[gruposVisibles,sels,customAlimentos]);
+
+  function toggleTodos(grupo,val){
+    const nuevo={...sels};
+    grupo.alimentos.forEach(a=>{nuevo[a.id]=val;});
+    setSels(nuevo);
+  }
+  function toggleGlobal(val){
+    const nuevo={};
+    gruposVisibles.forEach(g=>g.alimentos.forEach(a=>{nuevo[a.id]=val;}));
+    setSels(nuevo);
+  }
+
+  async function cargarDia(di){
+    if(menuDias[di]||diasCargando[di])return;
+    setDiasCargando(p=>({...p,[di]:true}));
+    setMenuError("");
+    try{
+      const dia=await generarDiaConIA(DIAS[di],macros,kcalObj,sels,habitos,actDias[di]);
+      setMenuDias(p=>({...p,[di]:dia}));
+    }catch(e){
+      setMenuError(`No se pudo generar el menú de ${DIAS[di]}. Inténtalo de nuevo.`);
+      console.error(e);
+    }finally{
+      setDiasCargando(p=>({...p,[di]:false}));
+    }
+  }
+
+  function handleGenerarMenu(){
+    setMenuDias({});setDiasCargando({});setMenuError("");
+    setOpElegida({});setDiaActivo(0);setMenuIniciado(true);
+  }
+
+  // Se llama desde useEffect cuando menuIniciado cambia o diaActivo cambia
+  useEffect(()=>{
+    if(menuIniciado)cargarDia(diaActivo);
+  // eslint-disable-next-line
+  },[menuIniciado,diaActivo]);
+
+  function handleCambiarDia(di){
+    setDiaActivo(di);
+    if(menuIniciado&&!menuDias[di]&&!diasCargando[di])cargarDia(di);
+  }
+
+  function handleGuardarDesdeMenu(di,comida,opI){
+    const dia=menuDias[di];
+    if(!dia)return;
+    const op=dia.comidas[comida]?.[opI];
+    if(!op||op.guardado)return;
+    const nueva={id:Date.now(),nombreComida:op.nombre||COMIDA_LABEL[comida],nombreDia:dia.nombre,ingredientes:op.ingredientes,descripcion:op.descripcion,fecha:new Date().toLocaleDateString("es-ES"),nota:"",foto:null};
+    setRecetario(prev=>[nueva,...prev]);
+    setMenuDias(p=>({
+      ...p,
+      [di]:{...p[di],comidas:{...p[di].comidas,[comida]:p[di].comidas[comida].map((o,i)=>i===opI?{...o,guardado:true}:o)}}
+    }));
+  }
+
+  async function handleAdaptarURL(){
+    if(!urlReceta)return;
+    setCargandoURL(true);setErrorReceta("");setRecetaAdaptada(null);
+    try{
+      const alimentosNombres=todosLosAlimentos.filter(a=>sels[a.id]).map(a=>a.n||a.nombre);
+      const r=await adaptarReceta(urlReceta,kcalObj,macros,pesoN,alimentosNombres);
+      if(r)setRecetaAdaptada(r);
+      else setErrorReceta("No pude acceder a la receta. Prueba a pegar el texto de la receta directamente, o intenta con otro enlace.");
+    }catch(e){
+      setErrorReceta("Hubo un problema al analizar la receta. Prueba de nuevo o pega el texto directamente.");
+    }
+    setCargandoURL(false);
+  }
+
+  function guardarRecetaAdaptada(){
+    if(!recetaAdaptada)return;
+    const nueva={id:Date.now(),nombreComida:recetaAdaptada.nombre,nombreDia:"Receta de internet",ingredientes:(recetaAdaptada.ingredientes_adaptados||[]).map(i=>({...i,n:i.nombre,macroLabel:i.macro_label,ref:i.ref||"tal cual"})),descripcionIA:{nombre:recetaAdaptada.nombre,descripcion:recetaAdaptada.descripcion_original,como_cocinarlo:recetaAdaptada.instrucciones,twist:(recetaAdaptada.twists||[]).join(" • ")},fecha:new Date().toLocaleDateString("es-ES"),nota:recetaAdaptada.nota_motivacional||"",foto:null};
+    setRecetario(prev=>[nueva,...prev]);
+    setRecetaAdaptada(null);setUrlReceta("");
+  }
+
+  function guardarMedicion(){
+    const p=+med.peso,al=+med.altura,ci=+med.cintura,ca=+med.cadera,cu=+med.cuello;
+    if(!p||!al)return;
+    const imc=calcIMC(p,al);
+    const grasa=(ci&&cu)?calcGrasa({sexo:med.sexo,cintura:ci,cadera:ca,cuello:cu,alturaCm:al}):null;
+    const icc=(ci&&ca)?calcICC(ci,ca):null;
+    const ant=progreso[progreso.length-1];
+    const sim=ant?simbolo(p,ant.peso):"→";
+    setProgreso(prev=>[...prev,{fecha:Date.now(),peso:p,imc,grasa,icc,simbolo:sim}]);
+    setMedGuardada(true);setTimeout(()=>setMedGuardada(false),3000);
+  }
+
+  function addAlimentoCustom(){
+    const {n,rol,kcal,p,c,g,ref}=alimentoCustom;
+    if(!n||!kcal)return;
+    const nuevo={id:`custom_${Date.now()}`,n,rol,ref,kcal:+kcal,p:+p,c:+c,g:+g};
+    setCustomAlimentos(prev=>[...prev,nuevo]);
+    setSels(prev=>({...prev,[nuevo.id]:true}));
+    setAlimentoCustom({n:"",rol:"proteina",kcal:"",p:"",c:"",g:"",ref:"tal cual"});
+    setMostrarFormCustom(false);
+  }
+
+  /* ─── Navegación ─── */
+  const ORDEN=["fase1","progreso","menu","recetario"];
+  const tabIdx=ORDEN.indexOf(tab);
+  const goNext=tabIdx<ORDEN.length-1?()=>setTab(ORDEN[tabIdx+1]):null;
+  const goPrev=tabIdx>0?()=>setTab(ORDEN[tabIdx-1]):null;
+  const perdMin=pesoN?perdStr(pesoN*0.005):"—";
+  const perdMax=pesoN?perdStr(pesoN*0.01):"—";
+
+  /* ─── Medición actual (sin guardar) ─── */
+  const imcActual=med.peso&&med.altura?calcIMC(+med.peso,+med.altura):null;
+  const grasaActual=(med.cintura&&med.cuello&&med.peso&&med.altura)?calcGrasa({sexo:med.sexo,cintura:+med.cintura,cadera:+med.cadera,cuello:+med.cuello,alturaCm:+med.altura}):null;
+  const iccActual=(med.cintura&&med.cadera)?calcICC(+med.cintura,+med.cadera):null;
+
+  return(
+    <div className="min-h-screen bg-stone-50">
+      <header className="border-b border-stone-200 bg-white sticky top-0 z-10">
+        <div className="mx-auto max-w-3xl px-4 py-4">
+          <h1 className="font-serif text-xl text-stone-900">Tu plan de alimentación 🌿</h1>
+          <nav className="mt-3 flex gap-1.5 overflow-x-auto">
+            {TABS.map(t=>(
+              <button key={t.id} onClick={()=>setTab(t.id)} className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition ${tab===t.id?"bg-emerald-700 text-white":"bg-stone-100 text-stone-600 hover:bg-stone-200"}`}>
+                {t.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-3xl px-4 py-6 space-y-5">
+
+        {/* ══ FASE 1: OBJETIVO ══ */}
+        {tab==="fase1"&&<>
+          <Card cls="bg-gradient-to-br from-emerald-50 to-stone-50 border-emerald-100">
+            <p className="text-sm text-emerald-900 leading-relaxed">
+              Hola 👋 Esto no es una dieta de aguantar. Es aprender a comer para que tu cuerpo esté bien, tengas energía y, de paso, vayas perdiendo la grasa que no necesitas — poco a poco, sin prisa y sin obsesiones.
+            </p>
+            <p className="mt-2 text-sm text-emerald-900">Calculamos tu objetivo en 4 pasos. Tardas 2 minutos.</p>
+          </Card>
+
+          <Card>
+            <PasoHdr n={1} total={4} titulo="Tasa metabólica basal (TMB)"/>
+            <Expl>Es lo que tu cuerpo gasta solo por existir — respirar, pensar, bombear sangre. No cuenta el movimiento. Depende de tu sexo, peso, altura y edad.</Expl>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div>
+                <Lbl>Sexo</Lbl>
+                <div className="flex gap-2">
+                  {["mujer","hombre"].map(s=>(
+                    <button key={s} onClick={()=>setSexo(s)} className={`flex-1 rounded-lg border px-3 py-2 text-sm capitalize ${sexo===s?"border-emerald-600 bg-emerald-50 text-emerald-800":"border-stone-300 text-stone-600"}`}>{s}</button>
+                  ))}
+                </div>
+              </div>
+              <div><Lbl>Edad (años)</Lbl><Inp type="number" placeholder="ej. 30" value={edad} onChange={e=>setEdad(e.target.value)}/></div>
+              <div><Lbl>Peso (kg)</Lbl><Inp type="number" placeholder="ej. 65" value={peso} onChange={e=>setPeso(e.target.value)}/></div>
+              <div><Lbl>Altura (cm)</Lbl><Inp type="number" placeholder="ej. 165" value={altura} onChange={e=>setAltura(e.target.value)}/></div>
+            </div>
+            {datosOk&&(
+              <div className="mt-4 rounded-xl bg-stone-50 border border-stone-200 px-4 py-3">
+                <p className="text-xs text-stone-500">Tu TMB (fórmula Mifflin-St Jeor)</p>
+                <p className="font-serif text-2xl text-stone-900">{Math.round(tmb)} kcal/día</p>
+              </div>
+            )}
+          </Card>
+
+          <Card>
+            <PasoHdr n={2} total={4} titulo="Tu gasto total diario (TDEE)"/>
+            <Expl>La TMB solo cuenta cuando estás quieto/a. El deporte y el movimiento del día aumentan lo que gastas. 
+            <span className="block mt-1 text-emerald-700 font-medium">Fórmula: TDEE = TMB × (1,2 + horas/semana × 0,035). Cada hora de deporte semanal añade un 3,5% a tu gasto diario.</span></Expl>
+            <div className="mt-4">
+              <Lbl>Horas de deporte a la semana: <span className="text-emerald-700 font-semibold">{horasDeporte} h</span></Lbl>
+              <input type="range" min={0} max={20} value={horasDeporte} onChange={e=>setHorasDeporte(+e.target.value)} className="w-full accent-emerald-700 mt-1"/>
+              <div className="flex justify-between text-xs text-stone-400 mt-0.5"><span>0 h · sedentario</span><span>20 h · atleta</span></div>
+            </div>
+            <div className="mt-3">
+              <button onClick={()=>setTrabajoPie(!trabajoPie)} className={`rounded-lg border px-3 py-2 text-sm ${trabajoPie?"border-emerald-600 bg-emerald-50 text-emerald-800":"border-stone-200 text-stone-600"}`}>
+                {trabajoPie?"✓ ":""}Mi trabajo es de pie o muy activo (+10%)
+              </button>
+            </div>
+            {datosOk&&(
+              <div className="mt-4 rounded-xl bg-stone-50 border border-stone-200 px-4 py-3">
+                <p className="text-xs text-stone-500">Tu gasto total diario estimado</p>
+                <p className="font-serif text-2xl text-stone-900">{Math.round(tdee)} kcal/día</p>
+              </div>
+            )}
+          </Card>
+
+          <Card>
+            <PasoHdr n={3} total={4} titulo="El pequeño déficit — tu magia"/>
+            <Expl>Para perder grasa hay que comer un pelín menos de lo que gastas. Un 10–20% es suficiente: pierdes grasa, mantienes músculo y sigues con energía para vivir y entrenar.</Expl>
+            <Lbl>Déficit: {deficit}% {deficit<=12?"(suave, ideal para empezar)":deficit<=17?"(moderado, muy recomendado)":"(agresivo — ve con cuidado)"}</Lbl>
+            <input type="range" min={10} max={20} value={deficit} onChange={e=>setDeficit(+e.target.value)} className="w-full accent-emerald-700"/>
+            <div className="flex justify-between text-xs text-stone-400"><span>10%</span><span>20%</span></div>
+            {datosOk&&(
+              <div className="mt-4 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">
+                <p className="text-xs text-emerald-800">✨ Tu objetivo calórico diario</p>
+                <p className="font-serif text-2xl text-emerald-900">{Math.round(kcalObj)} kcal/día</p>
+                <p className="text-xs text-emerald-700 mt-1">Ritmo esperable: {perdMin}–{perdMax} por semana. Lento y sostenible.</p>
+              </div>
+            )}
+          </Card>
+
+          <Card>
+            <PasoHdr n={4} total={4} titulo="Cómo repartir tus calorías"/>
+            <Expl>La proteína le dice a tu cuerpo "no toques el músculo, quema grasa". Primero calculamos cuánta necesitas según tu peso. El resto se reparte entre grasa (imprescindible para hormonas) e hidratos (tu combustible).</Expl>
+            <Lbl>Proteína: {gPKg.toFixed(1)} g/kg de peso corporal</Lbl>
+            <input type="range" min={1.6} max={2.0} step={0.1} value={gPKg} onChange={e=>setGPKg(+e.target.value)} className="w-full accent-rose-500"/>
+            <p className="text-xs text-stone-400 mb-3">Rango óptimo: 1,6–2,0 g/kg. Más alto si entrenas con pesas.</p>
+            <Lbl>Grasa saludable: {pctG}%</Lbl>
+            <input type="range" min={20} max={30} value={pctG} onChange={e=>setPctG(+e.target.value)} className="w-full accent-amber-400 mb-4"/>
+            {datosOk?<div className="space-y-3">
+              <MacroBar nombre="Proteína 💪" gramos={gProteina} kcal={kcalProt} pct={pctProt} color="bg-rose-500"/>
+              <MacroBar nombre="Grasa saludable 🥑" gramos={gGrasa} kcal={kcalGrasa} pct={pctG} color="bg-amber-400"/>
+              <MacroBar nombre="Carbohidratos de calidad 🌾" gramos={gCarbo} kcal={kcalCarbo} pct={pctCarbo} color="bg-sky-500"/>
+            </div>:<p className="text-sm text-stone-400">Rellena tus datos arriba para ver los macros.</p>}
+            <Expl>Consejo: elige carbohidratos de bajo índice glucémico la mayor parte del tiempo (avena, arroz integral, legumbres, boniato). Energía estable, hambre a raya.</Expl>
+          </Card>
+          {datosOk&&<Card cls="bg-emerald-50 border-emerald-100">
+            <p className="text-sm font-medium text-emerald-900">¡Ya tienes tu objetivo! 🎉</p>
+            <FraseDia/>
+          </Card>}
+          <NavButtons next={goNext} nextLabel="Ver mis medidas →"/>
+        </>}
+
+        {/* ══ PROGRESO ══ */}
+        {tab==="progreso"&&<>
+          <Card cls="bg-gradient-to-br from-sky-50 to-stone-50 border-sky-100">
+            <p className="text-sm text-sky-900 leading-relaxed">
+              Aquí guardamos medidas — no para obsesionarte, sino para ver la tendencia. Revisa cada 1–2 semanas, no cada día. Los cambios reales son lentos y constantes. 🐢✨
+            </p>
+            {pesoN>0&&<p className="mt-2 text-sm text-sky-900 font-medium">Ritmo saludable con tu peso actual: <span className="text-emerald-700">{perdMin}–{perdMax} a la semana</span>.</p>}
+          </Card>
+
+          <Card>
+            <PasoHdr n={1} total={3} titulo="Datos de esta medición"/>
+            <Expl>Solo peso y altura son obligatorios. El resto ayuda a calcular distribución de grasa — cuanta más info, mejor el diagnóstico.</Expl>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div>
+                <Lbl>Sexo</Lbl>
+                <div className="flex gap-2">
+                  {["mujer","hombre"].map(s=>(
+                    <button key={s} onClick={()=>setMed(p=>({...p,sexo:s}))} className={`flex-1 rounded-lg border px-3 py-1.5 text-sm capitalize ${med.sexo===s?"border-sky-500 bg-sky-50 text-sky-800":"border-stone-300 text-stone-600"}`}>{s}</button>
+                  ))}
+                </div>
+              </div>
+              <div><Lbl>Peso (kg)</Lbl><Inp type="number" placeholder="ej. 65.2" value={med.peso} onChange={e=>setMed(p=>({...p,peso:e.target.value}))}/></div>
+              <div><Lbl>Altura (cm)</Lbl><Inp type="number" placeholder="ej. 165" value={med.altura} onChange={e=>setMed(p=>({...p,altura:e.target.value}))}/></div>
+              <div><Lbl>Cintura (cm)</Lbl><Inp type="number" placeholder="ej. 75" value={med.cintura} onChange={e=>setMed(p=>({...p,cintura:e.target.value}))}/></div>
+              <div><Lbl>Cadera (cm)</Lbl><Inp type="number" placeholder="ej. 95" value={med.cadera} onChange={e=>setMed(p=>({...p,cadera:e.target.value}))}/></div>
+              <div><Lbl>Cuello (cm)</Lbl><Inp type="number" placeholder="ej. 32" value={med.cuello} onChange={e=>setMed(p=>({...p,cuello:e.target.value}))}/></div>
+            </div>
+            {imcActual!=null&&(
+              <div className="mt-4 space-y-3">
+                <div className="rounded-xl bg-stone-50 border border-stone-200 p-3">
+                  <p className="text-xs text-stone-500 mb-1">IMC — referencia general (no distingue músculo de grasa)</p>
+                  <div className="flex items-center gap-2">
+                    <span className="font-serif text-2xl">{imcActual.toFixed(1)}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${clasifIMC(imcActual).c==="bien"?"bg-emerald-100 text-emerald-800":"bg-amber-100 text-amber-800"}`}>{clasifIMC(imcActual).t}</span>
+                  </div>
+                </div>
+                {grasaActual!=null&&(
+                  <div className="rounded-xl bg-stone-50 border border-stone-200 p-3">
+                    <p className="text-xs text-stone-500 mb-1">% de grasa corporal (Hodgdon-Beckett) — distingue grasa de músculo</p>
+                    <div className="flex items-center gap-2">
+                      <span className="font-serif text-2xl">{grasaActual.toFixed(1)}%</span>
+                      <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-800">{clasifGrasa(med.sexo,grasaActual)}</span>
+                    </div>
+                  </div>
+                )}
+                {iccActual!=null&&(
+                  <div className="rounded-xl bg-stone-50 border border-stone-200 p-3">
+                    <p className="text-xs text-stone-500 mb-1">Índice cintura-cadera — aproxima la grasa visceral (la más importante para la salud)</p>
+                    <div className="flex items-center gap-2">
+                      <span className="font-serif text-2xl">{iccActual.toFixed(2)}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${clasifICC(med.sexo,iccActual).c==="bien"?"bg-emerald-100 text-emerald-800":"bg-amber-100 text-amber-800"}`}>{clasifICC(med.sexo,iccActual).t}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            <button onClick={guardarMedicion} disabled={!med.peso||!med.altura} className="mt-4 rounded-full bg-sky-700 px-5 py-2 text-sm font-medium text-white hover:bg-sky-800 disabled:opacity-40 transition">
+              Guardar medición
+            </button>
+            {medGuardada&&<p className="mt-2 text-sm text-emerald-700 font-medium">¡Guardada! ✨ Cada medición es información valiosa.</p>}
+          </Card>
+
+          {progreso.length>=1&&(
+            <Card>
+              <h3 className="font-serif text-base text-stone-900 mb-1">Tu tendencia</h3>
+              <Expl>↓ bajando · → estable · ↑ subiendo. Toca un punto para ver el dato exacto. Lo que importa es la dirección general en 3–4 semanas.</Expl>
+              <div className="mt-3"><GraficaProgreso entradas={progreso}/></div>
+              {progreso.length>0&&(
+                <button onClick={()=>setProgreso(prev=>prev.slice(0,-1))} className="mt-3 text-xs text-stone-400 hover:text-rose-500">Eliminar última medición</button>
+              )}
+            </Card>
+          )}
+          <NavButtons prev={goPrev} next={goNext}/>
+        </>}
+
+        {/* ══ MENÚ ══ */}
+        {tab==="menu"&&<>
+          <Card cls="bg-gradient-to-br from-amber-50 to-stone-50 border-amber-100">
+            <p className="text-sm text-amber-900 leading-relaxed">
+              Construimos tu menú semanal con platos reales que te apetezcan. Para cada comida tienes <strong>2 opciones</strong> — elige la que más te guste ese día. ¡La variedad es la clave para no aburrirse!
+            </p>
+            {TEMPORADA_ACTUAL.length>0&&(
+              <div className="mt-2 rounded-lg bg-amber-100 px-3 py-2">
+                <p className="text-xs font-medium text-amber-800">🌞 De temporada en {MES_NOMBRE}: {TEMPORADA_ACTUAL.slice(0,8).join(" · ")}</p>
+              </div>
+            )}
+          </Card>
+
+          {/* Paso 1: Hábitos */}
+          <Card>
+            <PasoHdr n={1} total={4} titulo="Cuéntame sobre ti"/>
+            <Expl>Así filtro los grupos de alimentos para que el menú se adapte a lo que de verdad comes.</Expl>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {[{k:"veggie",l:"Soy vegetariano/a"},{k:"noCarne",l:"No como carne"},{k:"noPescado",l:"No como pescado"},{k:"sinLacteos",l:"Sin lácteos"}].map(h=>(
+                <button key={h.k} onClick={()=>setHabitos(p=>({...p,[h.k]:!p[h.k]}))} className={`rounded-lg border px-3 py-2 text-sm ${habitos[h.k]?"border-emerald-600 bg-emerald-50 text-emerald-800":"border-stone-200 text-stone-600"}`}>
+                  {habitos[h.k]?"✓ ":""}{h.l}
+                </button>
+              ))}
+            </div>
+            <div className="mt-3">
+              <Lbl>Algo más que deba saber (alergias, aversiones, lo que adoras…)</Lbl>
+              <Inp placeholder="Ej: soy intolerante al gluten, no soporto el cilantro, me encantan las lentejas..." value={habitos.libre} onChange={e=>setHabitos(p=>({...p,libre:e.target.value}))}/>
+              {habitos.libre&&<p className="mt-1 text-xs text-stone-500">👍 Tenlo en cuenta al elegir los alimentos del paso siguiente.</p>}
+            </div>
+          </Card>
+
+          {/* Paso 2: Lista de la compra */}
+          <Card>
+            <PasoHdr n={2} total={4} titulo="Tu lista de la compra"/>
+            <Expl>Marca todo lo que te gusta o tienes en casa. Cuantos más marques, más variado será el menú.</Expl>
+            <div className="flex gap-2 mb-4">
+              <button onClick={()=>toggleGlobal(true)} className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs text-emerald-700 hover:bg-emerald-100 transition">Marcar todos ✓</button>
+              <button onClick={()=>toggleGlobal(false)} className="rounded-full border border-stone-200 px-3 py-1 text-xs text-stone-500 hover:border-stone-400 transition">Quitar todos</button>
+            </div>
+            <div className="space-y-5">
+              {gruposVisibles.map(g=>{
+                const todos=g.alimentos.every(a=>sels[a.id]);
+                const ninguno=g.alimentos.every(a=>!sels[a.id]);
+                return(
+                  <div key={g.id}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-sm font-semibold text-stone-700">{g.nombre}</p>
+                      <div className="flex gap-1">
+                        <button onClick={()=>toggleTodos(g,true)} className="text-xs text-emerald-600 hover:text-emerald-800 border border-emerald-200 rounded-full px-2 py-0.5">todos</button>
+                        <button onClick={()=>toggleTodos(g,false)} className="text-xs text-stone-400 hover:text-stone-600 border border-stone-200 rounded-full px-2 py-0.5">ninguno</button>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {g.alimentos.map(a=>{
+                        const esTemporada=TEMPORADA_ACTUAL.some(t=>a.n.toLowerCase().includes(t.toLowerCase()));
+                        return(
+                          <button key={a.id} onClick={()=>setSels(p=>({...p,[a.id]:!p[a.id]}))} className={`rounded-full border px-2.5 py-1 text-xs transition ${sels[a.id]?"border-emerald-600 bg-emerald-700 text-white":"border-stone-300 text-stone-600 hover:border-emerald-300"}`}>
+                            {sels[a.id]?"✓ ":""}{a.n}{esTemporada&&!sels[a.id]?" 🌞":""}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+              {/* Alimentos personalizados */}
+              {customAlimentos.length>0&&(
+                <div>
+                  <p className="text-sm font-semibold text-stone-700 mb-1.5">⭐ Mis alimentos</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {customAlimentos.map(a=>(
+                      <button key={a.id} onClick={()=>setSels(p=>({...p,[a.id]:!p[a.id]}))} className={`rounded-full border px-2.5 py-1 text-xs transition ${sels[a.id]?"border-purple-600 bg-purple-700 text-white":"border-purple-200 text-purple-700"}`}>
+                        {sels[a.id]?"✓ ":""}{a.n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            {/* Añadir alimento personalizado */}
+            <div className="mt-4 border-t border-stone-100 pt-4">
+              <button onClick={()=>setMostrarFormCustom(!mostrarFormCustom)} className="text-xs text-stone-500 hover:text-emerald-700 transition">
+                {mostrarFormCustom?"▲ Cancelar":"+ Añadir un alimento que no está en la lista"}
+              </button>
+              {mostrarFormCustom&&(
+                <div className="mt-3 rounded-xl border border-stone-200 bg-stone-50 p-3 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="col-span-2"><Lbl>Nombre</Lbl><Inp placeholder="Ej. Tempeh de garbanzo" value={alimentoCustom.n} onChange={e=>setAlimentoCustom(p=>({...p,n:e.target.value}))}/></div>
+                    <div><Lbl>Grupo</Lbl>
+                      <Sel value={alimentoCustom.rol} onChange={e=>setAlimentoCustom(p=>({...p,rol:e.target.value}))}>
+                        <option value="proteina">Proteína</option>
+                        <option value="carbohidrato">Carbohidrato</option>
+                        <option value="grasa">Grasa</option>
+                        <option value="verdura">Verdura</option>
+                        <option value="fruta">Fruta</option>
+                      </Sel>
+                    </div>
+                    <div><Lbl>Referencia</Lbl><Inp placeholder="ej. tal cual" value={alimentoCustom.ref} onChange={e=>setAlimentoCustom(p=>({...p,ref:e.target.value}))}/></div>
+                    <div><Lbl>kcal /100 g</Lbl><Inp type="number" placeholder="ej. 150" value={alimentoCustom.kcal} onChange={e=>setAlimentoCustom(p=>({...p,kcal:e.target.value}))}/></div>
+                    <div><Lbl>Proteína (g)</Lbl><Inp type="number" placeholder="ej. 15" value={alimentoCustom.p} onChange={e=>setAlimentoCustom(p=>({...p,p:e.target.value}))}/></div>
+                    <div><Lbl>Carbohidrato (g)</Lbl><Inp type="number" placeholder="ej. 5" value={alimentoCustom.c} onChange={e=>setAlimentoCustom(p=>({...p,c:e.target.value}))}/></div>
+                    <div><Lbl>Grasa (g)</Lbl><Inp type="number" placeholder="ej. 8" value={alimentoCustom.g} onChange={e=>setAlimentoCustom(p=>({...p,g:e.target.value}))}/></div>
+                  </div>
+                  <button onClick={addAlimentoCustom} disabled={!alimentoCustom.n||!alimentoCustom.kcal} className="mt-1 rounded-full bg-purple-700 px-4 py-1.5 text-xs font-medium text-white hover:bg-purple-800 disabled:opacity-40 transition">
+                    Añadir alimento
+                  </button>
+                </div>
+              )}
+            </div>
+            {gruposSinElegir.length>0&&(
+              <p className="mt-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">
+                Aún sin marcar: {gruposSinElegir.map(g=>g.nombre).join(", ")}. Elige al menos uno de cada para un menú completo.
+              </p>
+            )}
+          </Card>
+
+          {/* Paso 3: Actividad semanal */}
+          <Card>
+            <PasoHdr n={3} total={4} titulo="Tu actividad esta semana"/>
+            <Expl>Si entrenas, desplazo hidratos a la comida antes o después para que tengas energía y recuperes bien — sin salirte del déficit.</Expl>
+            <div className="mt-3 space-y-2">
+              {DIAS.map((d,di)=>(
+                <div key={d} className="flex items-center gap-2 flex-wrap">
+                  <span className="w-20 text-sm font-medium text-stone-700 shrink-0">{d}</span>
+                  <Sel
+                    className="flex-1 min-w-0"
+                    value={actDias[di].intens}
+                    onChange={e=>{
+                      const a=[...actDias];
+                      a[di]={...a[di],intens:e.target.value};
+                      setActDias(a);
+                    }}
+                  >
+                    <option value="ninguna">Descanso</option>
+                    <option value="suave">Suave (caminar, yoga…)</option>
+                    <option value="moderada">Moderada (gym, nadar…)</option>
+                    <option value="intensa">Intensa (spinning, HIIT…)</option>
+                  </Sel>
+                  {actDias[di].intens!=="ninguna"&&(
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Inp
+                        type="number"
+                        className="w-14"
+                        placeholder="h"
+                        min={0}
+                        max={8}
+                        value={actDias[di].horas}
+                        onChange={e=>{
+                          const a=[...actDias];
+                          a[di]={...a[di],horas:e.target.value};
+                          setActDias(a);
+                        }}
+                      />
+                      <span className="text-xs text-stone-400">h</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Paso 4: Generar */}
+          <Card>
+            <PasoHdr n={4} total={4} titulo="Tu menú semanal"/>
+            <Expl>Platos reales con ingredientes y gramos exactos. Tienes 2 opciones por comida — elige la que más te apetezca. Toca ✨ para ver cómo prepararlo y añadir ideas del cocinero.</Expl>
+            {!datosOk&&<p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">Primero rellena tus datos en "Tu objetivo" para calcular los macros correctamente.</p>}
+            <button
+              onClick={handleGenerarMenu}
+              disabled={gruposSinElegir.length>0||!datosOk}
+              className="mt-3 rounded-full bg-amber-600 px-5 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-40 transition"
+            >
+              {menuIniciado?"🔄 Regenerar menú":"Generar menú semanal 🍽️"}
+            </button>
+            {menuError&&<p className="mt-3 text-sm text-rose-600">{menuError}</p>}
+
+            {menuIniciado&&(
+              <div className="mt-5">
+                <div className="flex gap-1.5 overflow-x-auto pb-2">
+                  {DIAS.map((d,di)=>(
+                    <button key={d} onClick={()=>handleCambiarDia(di)}
+                      className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition ${diaActivo===di?"bg-stone-800 text-white":"bg-stone-100 text-stone-600"}`}>
+                      {d}{diasCargando[di]?" ⏳":""}
+                    </button>
+                  ))}
+                </div>
+
+                {diasCargando[diaActivo]&&(
+                  <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+                    Eligiendo platos para el {DIAS[diaActivo]}... ⏳
+                  </div>
+                )}
+
+                {menuDias[diaActivo]&&(
+                  <div className="mt-4 space-y-5">
+                    {COMIDAS_DIA.map(c=>{
+                      const ops=menuDias[diaActivo]?.comidas[c];
+                      if(!ops||!ops.length)return null;
+                      const elegida=opElegida[`${diaActivo}-${c}`]??0;
+                      return(
+                        <div key={c}>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="font-serif text-sm text-stone-800">{COMIDA_EMOJI[c]} {COMIDA_LABEL[c]}</span>
+                            {ops.length>1&&(
+                              <div className="flex gap-1 ml-auto">
+                                {ops.map((_,oi)=>(
+                                  <button key={oi} onClick={()=>setOpElegida(p=>({...p,[`${diaActivo}-${c}`]:oi}))}
+                                    className={`rounded-full border px-2 py-0.5 text-xs transition ${elegida===oi?"bg-stone-800 text-white border-stone-800":"border-stone-300 text-stone-500"}`}>
+                                    Opción {oi+1}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <PlatoCard opcion={ops[elegida]} onGuardar={()=>handleGuardarDesdeMenu(diaActivo,c,elegida)}/>
+                        </div>
+                      );
+                    })}
+                    <FraseDia/>
+                  </div>
+                )}
+              </div>
+            )}
+          </Card>
+          <NavButtons prev={goPrev} next={goNext}/>
+        </>}
+
+        {/* ══ RECETARIO ══ */}
+        {tab==="recetario"&&<>
+          <Card cls="bg-gradient-to-br from-rose-50 to-stone-50 border-rose-100">
+            <p className="text-sm text-rose-900 leading-relaxed">
+              Tu recetario personal 📖 Guarda platos del menú, adapta recetas de internet a tus macros, y añade notas y fotos. Tu libro de cocina saludable, construido por ti.
+            </p>
+          </Card>
+
+          <Card>
+            <h3 className="font-serif text-base text-stone-900">🔗 Adaptar una receta de internet</h3>
+            <Expl>Pega el enlace de cualquier receta. La busco en internet, la adapto a tus calorías y macros, y sugiero ingredientes alternativos más saludables.</Expl>
+            <div className="mt-3 flex gap-2">
+              <Inp placeholder="https://receta.com/mi-plato-favorito" value={urlReceta} onChange={e=>{setUrlReceta(e.target.value);setErrorReceta("");}} className="flex-1"/>
+              <button onClick={handleAdaptarURL} disabled={!urlReceta||cargandoURL} className="rounded-full bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-40 whitespace-nowrap transition">
+                {cargandoURL?"Buscando... 🔍":"Adaptar"}
+              </button>
+            </div>
+            {cargandoURL&&<p className="mt-2 text-xs text-stone-500">Estoy buscando la receta y calculando tus macros — puede tardar unos segundos ⏳</p>}
+            {errorReceta&&<p className="mt-2 text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">{errorReceta}</p>}
+            {recetaAdaptada&&(
+              <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 space-y-3">
+                <p className="font-serif text-base text-stone-900">{recetaAdaptada.nombre}</p>
+                <p className="text-sm text-stone-500 italic">{recetaAdaptada.descripcion_original}</p>
+                {recetaAdaptada.twists?.length>0&&(
+                  <div>
+                    <p className="text-xs font-semibold text-rose-700 mb-1">💡 Twists saludables sugeridos</p>
+                    {recetaAdaptada.twists.map((t,i)=><p key={i} className="text-xs text-stone-600">• {t}</p>)}
+                  </div>
+                )}
+                {recetaAdaptada.ingredientes_adaptados?.length>0&&(
+                  <div>
+                    <p className="text-xs font-semibold text-stone-700 mb-1">Ingredientes adaptados a tus macros</p>
+                    <ul className="space-y-1">{recetaAdaptada.ingredientes_adaptados.map((ing,i)=>(
+                      <li key={i} className="flex justify-between text-xs">
+                        <span className="text-stone-700">{ing.nombre} — {ing.gramos}g ({ing.ref})</span>
+                        <span className="text-stone-400">{ing.macro_label}</span>
+                      </li>
+                    ))}</ul>
+                  </div>
+                )}
+                {recetaAdaptada.instrucciones&&<p className="text-xs text-stone-600"><span className="font-medium">Preparación:</span> {recetaAdaptada.instrucciones}</p>}
+                {recetaAdaptada.nota_motivacional&&<p className="text-xs text-emerald-700 italic">{recetaAdaptada.nota_motivacional}</p>}
+                <div className="flex gap-2">
+                  <button onClick={guardarRecetaAdaptada} className="rounded-full bg-emerald-700 px-4 py-1.5 text-xs font-medium text-white hover:bg-emerald-800 transition">Guardar en mi recetario ♥</button>
+                  <button onClick={()=>setRecetaAdaptada(null)} className="rounded-full border border-stone-300 px-4 py-1.5 text-xs text-stone-500 transition">Descartar</button>
+                </div>
+              </div>
+            )}
+          </Card>
+
+          {recetario.length===0?(
+            <Card>
+              <p className="text-center text-stone-400 text-sm py-6">Tu recetario está vacío 🌱<br/><span className="text-xs">Guarda platos desde el menú o adapta recetas de internet.</span></p>
+            </Card>
+          ):(
+            <div className="space-y-4">
+              <h3 className="font-serif text-base text-stone-800 px-1">Mis recetas guardadas ({recetario.length})</h3>
+              {recetario.map(r=>(
+                <Card key={r.id}>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="font-serif text-sm text-stone-900">{r.nombreComida}</p>
+                      <p className="text-xs text-stone-400">{r.nombreDia} · {r.fecha}</p>
+                    </div>
+                    <button onClick={()=>setVerReceta(verReceta===r.id?null:r.id)} className="text-xs text-stone-400 hover:text-stone-700 border border-stone-200 rounded-full px-2 py-0.5 shrink-0">{verReceta===r.id?"▲":"▼"}</button>
+                  </div>
+                  {r.foto&&<img src={r.foto} alt="" className="mt-2 w-full max-h-40 object-cover rounded-lg"/>}
+                  {verReceta===r.id&&(
+                    <div className="mt-3 space-y-3 border-t border-stone-100 pt-3">
+                      {r.descripcionIA&&<>
+                        <p className="text-xs italic text-stone-600">{r.descripcionIA.descripcion}</p>
+                        {r.descripcionIA.como_cocinarlo&&<p className="text-xs text-stone-600"><span className="font-medium">👨‍🍳</span> {r.descripcionIA.como_cocinarlo}</p>}
+                        {r.descripcionIA.twist&&<p className="text-xs text-emerald-700">💡 {r.descripcionIA.twist}</p>}
+                      </>}
+                      {r.ingredientes?.length>0&&(
+                        <ul className="space-y-1">{r.ingredientes.map((ing,i)=>(
+                          <li key={i} className="flex justify-between text-xs">
+                            <span className="text-stone-700">{ing.n||ing.nombre}{ing.gramos?` — ${ing.gramos}g (${ing.ref})`:""}</span>
+                            <span className="text-stone-400">{ing.macroLabel||ing.macro_label}</span>
+                          </li>
+                        ))}</ul>
+                      )}
+                      <div>
+                        <Lbl>Mis notas</Lbl>
+                        <textarea className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm text-stone-700 focus:border-rose-400 focus:outline-none resize-none" rows={2} placeholder="Cómo te quedó, qué cambiarías…" value={notaActual[r.id]??r.nota} onChange={e=>setNotaActual(p=>({...p,[r.id]:e.target.value}))} onBlur={e=>{const nota=e.target.value;setRecetario(prev=>prev.map(x=>x.id===r.id?{...x,nota}:x));}}/>
+                      </div>
+                      <div>
+                        <Lbl>Foto (pega aquí una URL de imagen)</Lbl>
+                        <Inp placeholder="https://..." defaultValue={r.foto||""} onBlur={e=>{const f=e.target.value;setRecetario(prev=>prev.map(x=>x.id===r.id?{...x,foto:f}:x));}}/>
+                      </div>
+                      <button onClick={()=>setRecetario(prev=>prev.filter(x=>x.id!==r.id))} className="text-xs text-rose-500 hover:text-rose-700 transition">Eliminar receta</button>
+                    </div>
+                  )}
+                </Card>
+              ))}
+            </div>
+          )}
+          <NavButtons prev={goPrev}/>
+        </>}
+
+      </main>
+
+      <footer className="mx-auto max-w-3xl px-4 pb-8 pt-2">
+        <p className="text-xs text-stone-400">Esta herramienta usa fórmulas estándar de nutrición (Mifflin-St Jeor, Hodgdon-Beckett) y es orientativa. No sustituye la valoración de un profesional de la salud.</p>
+      </footer>
+    </div>
+  );
+}
+
+    // ── Montar la app ──────────────────────────────────────────────
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(React.createElement(App));
+  </script>
+</body>
+</html>
