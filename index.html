@@ -1,0 +1,3417 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Plan Nutricional</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { serif: ['"Playfair Display"', 'Georgia', 'serif'] } } }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&display=swap" rel="stylesheet"/>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <style>
+    body { background:#fafaf9; margin:0; }
+    * { box-sizing:border-box; }
+    input[type=range] { cursor:pointer; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script>
+    "use strict";
+    const { useState, useEffect, useMemo } = React;
+/* ═══════════════════════════════════════════
+   TEMPORADA (mes actual)
+═══════════════════════════════════════════ */
+const MES = new Date().getMonth();
+const MES_NOMBRE = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"][MES];
+const TEMPORADA_POR_MES = {
+  0: ["Alcachofa", "Espinaca", "Puerro", "Naranja", "Mandarina", "Kiwi", "Brócoli"],
+  1: ["Alcachofa", "Espinaca", "Puerro", "Naranja", "Kiwi", "Coliflor"],
+  2: ["Espárrago", "Guisante", "Alcachofa", "Fresas", "Naranja", "Puerro"],
+  3: ["Espárrago", "Guisante", "Habas", "Fresas", "Cereza", "Rúcula"],
+  4: ["Espárrago", "Guisante", "Habas", "Fresas", "Cereza", "Nectarina"],
+  5: ["Tomate", "Pimiento rojo", "Berenjena", "Calabacín", "Pepino", "Sandía", "Melocotón", "Cereza"],
+  6: ["Tomate", "Pimiento rojo", "Berenjena", "Calabacín", "Pepino", "Sandía", "Melón", "Melocotón", "Ciruela", "Higos"],
+  7: ["Tomate", "Pimiento rojo", "Berenjena", "Sandía", "Melón", "Melocotón", "Higos", "Uva", "Pera"],
+  8: ["Setas", "Calabaza", "Boniato", "Uva", "Pera", "Manzana", "Kiwi", "Granada"],
+  9: ["Setas", "Calabaza", "Boniato", "Coles", "Manzana", "Pera", "Granada", "Mandarina"],
+  10: ["Setas", "Calabaza", "Coliflor", "Brócoli", "Manzana", "Mandarina", "Caqui"],
+  11: ["Brócoli", "Coliflor", "Espinaca", "Col", "Naranja", "Mandarina", "Kiwi"]
+};
+const TEMPORADA_ACTUAL = TEMPORADA_POR_MES[MES] || [];
+
+/* ═══════════════════════════════════════════
+   BASE DE DATOS DE ALIMENTOS
+═══════════════════════════════════════════ */
+const GRUPOS = [{
+  id: "carne",
+  nombre: "🥩 Carne y aves",
+  rol: "proteina",
+  excluible: "noCarne",
+  alimentos: [{
+    id: "pollo_pecho",
+    n: "Pechuga de pollo",
+    ref: "cocinado",
+    kcal: 165,
+    p: 31,
+    c: 0,
+    g: 3.6
+  }, {
+    id: "pavo",
+    n: "Pechuga de pavo",
+    ref: "cocinado",
+    kcal: 150,
+    p: 29,
+    c: 0,
+    g: 3
+  }, {
+    id: "ternera",
+    n: "Ternera magra",
+    ref: "cocinado",
+    kcal: 180,
+    p: 28,
+    c: 0,
+    g: 7
+  }, {
+    id: "cerdo_lomo",
+    n: "Lomo de cerdo",
+    ref: "cocinado",
+    kcal: 165,
+    p: 26,
+    c: 0,
+    g: 6.5
+  }, {
+    id: "pollo_muslo",
+    n: "Muslo de pollo sin piel",
+    ref: "cocinado",
+    kcal: 175,
+    p: 26,
+    c: 0,
+    g: 8
+  }, {
+    id: "conejo",
+    n: "Conejo",
+    ref: "cocinado",
+    kcal: 150,
+    p: 28,
+    c: 0,
+    g: 4
+  }]
+}, {
+  id: "pescado",
+  nombre: "🐟 Pescado y marisco",
+  rol: "proteina",
+  excluible: "noPescado",
+  alimentos: [{
+    id: "atun_natural",
+    n: "Atún al natural (lata)",
+    ref: "escurrido",
+    kcal: 128,
+    p: 28,
+    c: 0,
+    g: 1.2
+  }, {
+    id: "salmon",
+    n: "Salmón",
+    ref: "cocinado",
+    kcal: 200,
+    p: 22,
+    c: 0,
+    g: 12
+  }, {
+    id: "merluza",
+    n: "Merluza",
+    ref: "cocinada",
+    kcal: 85,
+    p: 18,
+    c: 0,
+    g: 1.2
+  }, {
+    id: "bacalao",
+    n: "Bacalao",
+    ref: "cocinado",
+    kcal: 90,
+    p: 20,
+    c: 0,
+    g: 0.9
+  }, {
+    id: "dorada",
+    n: "Dorada / lubina",
+    ref: "cocinada",
+    kcal: 95,
+    p: 19,
+    c: 0,
+    g: 2.3
+  }, {
+    id: "sardina",
+    n: "Sardina (lata)",
+    ref: "escurrida",
+    kcal: 208,
+    p: 25,
+    c: 0,
+    g: 12
+  }, {
+    id: "gambas",
+    n: "Gambas / langostinos",
+    ref: "cocinados",
+    kcal: 99,
+    p: 21,
+    c: 0,
+    g: 1.5
+  }, {
+    id: "caballa",
+    n: "Caballa en conserva",
+    ref: "escurrida",
+    kcal: 150,
+    p: 24,
+    c: 0,
+    g: 6
+  }, {
+    id: "mejillones",
+    n: "Mejillones",
+    ref: "cocidos",
+    kcal: 86,
+    p: 12,
+    c: 4,
+    g: 2.2
+  }, {
+    id: "sepia",
+    n: "Sepia / calamar",
+    ref: "cocinado",
+    kcal: 92,
+    p: 18,
+    c: 1.5,
+    g: 1.4
+  }, {
+    id: "salmon_ahumado",
+    n: "Salmón ahumado",
+    ref: "tal cual",
+    kcal: 180,
+    p: 22,
+    c: 0,
+    g: 10
+  }]
+}, {
+  id: "huevo",
+  nombre: "🥚 Huevo",
+  rol: "proteina",
+  alimentos: [{
+    id: "huevo_entero",
+    n: "Huevo entero (~50 g)",
+    ref: "unidad",
+    kcal: 78,
+    p: 6.5,
+    c: 0.5,
+    g: 5.5
+  }, {
+    id: "clara",
+    n: "Clara de huevo (~30 g)",
+    ref: "unidad",
+    kcal: 15,
+    p: 3.5,
+    c: 0.2,
+    g: 0.1
+  }]
+}, {
+  id: "proteina_vegetal",
+  nombre: "🌱 Proteína vegetal",
+  rol: "proteina",
+  alimentos: [{
+    id: "tofu_firme",
+    n: "Tofu firme",
+    ref: "tal cual",
+    kcal: 145,
+    p: 15,
+    c: 2,
+    g: 9
+  }, {
+    id: "tofu_ahumado",
+    n: "Tofu ahumado",
+    ref: "tal cual",
+    kcal: 165,
+    p: 17,
+    c: 1.5,
+    g: 10
+  }, {
+    id: "tempeh",
+    n: "Tempeh",
+    ref: "tal cual",
+    kcal: 190,
+    p: 19,
+    c: 9,
+    g: 11
+  }, {
+    id: "soja_text",
+    n: "Soja texturizada fina",
+    ref: "seca (hidrata ×3)",
+    kcal: 345,
+    p: 52,
+    c: 28,
+    g: 1.5
+  }, {
+    id: "edamame",
+    n: "Edamame",
+    ref: "cocinado",
+    kcal: 121,
+    p: 11,
+    c: 9,
+    g: 5
+  }, {
+    id: "seitan",
+    n: "Seitán",
+    ref: "tal cual",
+    kcal: 120,
+    p: 21,
+    c: 7,
+    g: 1.5
+  }, {
+    id: "proteina_polvo",
+    n: "Proteína en polvo",
+    ref: "cazo ~30 g",
+    kcal: 120,
+    p: 24,
+    c: 3,
+    g: 2
+  }]
+}, {
+  id: "legumbres",
+  nombre: "🫘 Legumbres",
+  rol: "proteina",
+  alimentos: [{
+    id: "lentejas",
+    n: "Lentejas",
+    ref: "cocidas",
+    kcal: 116,
+    p: 9,
+    c: 20,
+    g: 0.4
+  }, {
+    id: "garbanzos",
+    n: "Garbanzos",
+    ref: "cocidos",
+    kcal: 164,
+    p: 9,
+    c: 27,
+    g: 2.6
+  }, {
+    id: "judias_negras",
+    n: "Judías negras / pintas",
+    ref: "cocidas",
+    kcal: 132,
+    p: 8.9,
+    c: 24,
+    g: 0.5
+  }, {
+    id: "judias_blancas",
+    n: "Judías blancas",
+    ref: "cocidas",
+    kcal: 139,
+    p: 9,
+    c: 25,
+    g: 0.5
+  }, {
+    id: "azukis",
+    n: "Azukis",
+    ref: "cocidos",
+    kcal: 128,
+    p: 7.5,
+    c: 25,
+    g: 0.1
+  }]
+}, {
+  id: "lacteos",
+  nombre: "🥛 Lácteos",
+  rol: "proteina",
+  excluible: "sinLacteos",
+  alimentos: [{
+    id: "yogur_griego_0",
+    n: "Yogur griego 0%",
+    ref: "tal cual",
+    kcal: 57,
+    p: 9,
+    c: 4,
+    g: 0.2
+  }, {
+    id: "skyr",
+    n: "Skyr natural",
+    ref: "tal cual",
+    kcal: 63,
+    p: 11,
+    c: 4,
+    g: 0.2
+  }, {
+    id: "queso_batido",
+    n: "Queso batido 0%",
+    ref: "tal cual",
+    kcal: 45,
+    p: 7.5,
+    c: 3.5,
+    g: 0.2
+  }, {
+    id: "queso_cottage",
+    n: "Queso cottage",
+    ref: "tal cual",
+    kcal: 98,
+    p: 11,
+    c: 3.4,
+    g: 4.3
+  }, {
+    id: "kefir",
+    n: "Kéfir natural",
+    ref: "tal cual",
+    kcal: 61,
+    p: 3.3,
+    c: 4.8,
+    g: 3.5
+  }, {
+    id: "leche_desnatada",
+    n: "Leche desnatada",
+    ref: "tal cual",
+    kcal: 35,
+    p: 3.6,
+    c: 5,
+    g: 0.1
+  }, {
+    id: "bebida_soja",
+    n: "Bebida de soja sin azúcar",
+    ref: "tal cual",
+    kcal: 33,
+    p: 3.3,
+    c: 0.5,
+    g: 1.8
+  }]
+}, {
+  id: "cereales",
+  nombre: "🌾 Cereales y pan",
+  rol: "carbohidrato",
+  alimentos: [{
+    id: "avena",
+    n: "Copos de avena",
+    ref: "seco",
+    kcal: 370,
+    p: 13,
+    c: 60,
+    g: 7
+  }, {
+    id: "arroz_integral",
+    n: "Arroz integral",
+    ref: "seco (cocido ×3)",
+    kcal: 350,
+    p: 7.5,
+    c: 75,
+    g: 2.5
+  }, {
+    id: "arroz_basmati",
+    n: "Arroz basmati",
+    ref: "seco (cocido ×2.5)",
+    kcal: 350,
+    p: 7,
+    c: 77,
+    g: 0.5
+  }, {
+    id: "pasta_integral",
+    n: "Pasta integral",
+    ref: "seca (cocida ×2.3)",
+    kcal: 350,
+    p: 13,
+    c: 68,
+    g: 2
+  }, {
+    id: "pasta_legumbre",
+    n: "Pasta de legumbres",
+    ref: "seca",
+    kcal: 340,
+    p: 22,
+    c: 55,
+    g: 2
+  }, {
+    id: "pan_integral",
+    n: "Pan integral 100%",
+    ref: "tal cual",
+    kcal: 250,
+    p: 9,
+    c: 45,
+    g: 3.5
+  }, {
+    id: "pan_centeno",
+    n: "Pan de centeno",
+    ref: "tal cual",
+    kcal: 260,
+    p: 9,
+    c: 48,
+    g: 3
+  }, {
+    id: "cuscus",
+    n: "Cuscús integral",
+    ref: "seco (cocido ×2)",
+    kcal: 360,
+    p: 12,
+    c: 72,
+    g: 2
+  }, {
+    id: "quinoa",
+    n: "Quinoa",
+    ref: "seca (cocida ×3)",
+    kcal: 370,
+    p: 14,
+    c: 64,
+    g: 6
+  }, {
+    id: "sarraceno",
+    n: "Trigo sarraceno",
+    ref: "seco",
+    kcal: 340,
+    p: 13,
+    c: 70,
+    g: 3.4
+  }, {
+    id: "tortitas",
+    n: "Tortitas de arroz / maíz",
+    ref: "unidad ~10 g",
+    kcal: 389,
+    p: 7,
+    c: 78,
+    g: 3
+  }, {
+    id: "muesli_sin",
+    n: "Muesli sin azúcar",
+    ref: "seco",
+    kcal: 350,
+    p: 10,
+    c: 62,
+    g: 8
+  }]
+}, {
+  id: "tuberculos",
+  nombre: "🥔 Tubérculos",
+  rol: "carbohidrato",
+  alimentos: [{
+    id: "patata",
+    n: "Patata",
+    ref: "cruda",
+    kcal: 80,
+    p: 2,
+    c: 18,
+    g: 0.1
+  }, {
+    id: "boniato",
+    n: "Boniato (batata)",
+    ref: "crudo",
+    kcal: 86,
+    p: 1.6,
+    c: 20,
+    g: 0.1
+  }]
+}, {
+  id: "verdura",
+  nombre: "🥦 Verdura y hortalizas",
+  rol: "verdura",
+  alimentos: [{
+    id: "brocoli",
+    n: "Brócoli",
+    ref: "libre",
+    kcal: 34,
+    p: 2.8,
+    c: 7,
+    g: 0.4
+  }, {
+    id: "espinaca",
+    n: "Espinaca",
+    ref: "libre",
+    kcal: 23,
+    p: 2.9,
+    c: 3.6,
+    g: 0.4
+  }, {
+    id: "kale",
+    n: "Kale",
+    ref: "libre",
+    kcal: 35,
+    p: 3.3,
+    c: 6,
+    g: 0.6
+  }, {
+    id: "pimiento_rojo",
+    n: "Pimiento rojo",
+    ref: "libre",
+    kcal: 31,
+    p: 1,
+    c: 6,
+    g: 0.3
+  }, {
+    id: "pimiento_verde",
+    n: "Pimiento verde",
+    ref: "libre",
+    kcal: 20,
+    p: 0.9,
+    c: 4,
+    g: 0.2
+  }, {
+    id: "calabacin",
+    n: "Calabacín",
+    ref: "libre",
+    kcal: 17,
+    p: 1.2,
+    c: 3.1,
+    g: 0.3
+  }, {
+    id: "tomate",
+    n: "Tomate",
+    ref: "libre",
+    kcal: 18,
+    p: 0.9,
+    c: 3.9,
+    g: 0.2
+  }, {
+    id: "pepino",
+    n: "Pepino",
+    ref: "libre",
+    kcal: 15,
+    p: 0.6,
+    c: 3.6,
+    g: 0.1
+  }, {
+    id: "berenjena",
+    n: "Berenjena",
+    ref: "libre",
+    kcal: 25,
+    p: 1,
+    c: 6,
+    g: 0.2
+  }, {
+    id: "coliflor",
+    n: "Coliflor",
+    ref: "libre",
+    kcal: 25,
+    p: 1.9,
+    c: 5,
+    g: 0.3
+  }, {
+    id: "zanahoria",
+    n: "Zanahoria",
+    ref: "libre",
+    kcal: 41,
+    p: 0.9,
+    c: 10,
+    g: 0.2
+  }, {
+    id: "cebolla",
+    n: "Cebolla",
+    ref: "libre",
+    kcal: 40,
+    p: 1.1,
+    c: 9.3,
+    g: 0.1
+  }, {
+    id: "setas",
+    n: "Setas / champiñones",
+    ref: "libre",
+    kcal: 22,
+    p: 3.1,
+    c: 3.3,
+    g: 0.3
+  }, {
+    id: "alcachofa",
+    n: "Alcachofa",
+    ref: "libre",
+    kcal: 47,
+    p: 3.3,
+    c: 10.5,
+    g: 0.2
+  }, {
+    id: "puerro",
+    n: "Puerro",
+    ref: "libre",
+    kcal: 61,
+    p: 1.5,
+    c: 14,
+    g: 0.3
+  }, {
+    id: "acelgas",
+    n: "Acelgas",
+    ref: "libre",
+    kcal: 20,
+    p: 1.8,
+    c: 3.7,
+    g: 0.2
+  }, {
+    id: "rucula",
+    n: "Rúcula",
+    ref: "libre",
+    kcal: 25,
+    p: 2.6,
+    c: 3.7,
+    g: 0.7
+  }, {
+    id: "ensalada",
+    n: "Canónigos / mezcla de hojas",
+    ref: "libre",
+    kcal: 15,
+    p: 1.4,
+    c: 2.9,
+    g: 0.2
+  }, {
+    id: "maiz",
+    n: "Maíz dulce",
+    ref: "cocido",
+    kcal: 96,
+    p: 3.4,
+    c: 21,
+    g: 1.5
+  }, {
+    id: "remolacha",
+    n: "Remolacha",
+    ref: "cocida",
+    kcal: 43,
+    p: 1.6,
+    c: 9.6,
+    g: 0.2
+  }, {
+    id: "esparragos",
+    n: "Espárragos",
+    ref: "libre",
+    kcal: 20,
+    p: 2.2,
+    c: 3.7,
+    g: 0.1
+  }, {
+    id: "apio",
+    n: "Apio",
+    ref: "libre",
+    kcal: 16,
+    p: 0.7,
+    c: 3,
+    g: 0.2
+  }, {
+    id: "judias_verdes",
+    n: "Judías verdes",
+    ref: "libre",
+    kcal: 31,
+    p: 1.8,
+    c: 7,
+    g: 0.1
+  }, {
+    id: "pak_choi",
+    n: "Pak choi / col china",
+    ref: "libre",
+    kcal: 13,
+    p: 1.5,
+    c: 2.2,
+    g: 0.2
+  }]
+}, {
+  id: "fruta",
+  nombre: "🍎 Fruta",
+  rol: "fruta",
+  alimentos: [{
+    id: "platano",
+    n: "Plátano (~120 g)",
+    ref: "unidad",
+    kcal: 89,
+    p: 1.1,
+    c: 23,
+    g: 0.3
+  }, {
+    id: "manzana",
+    n: "Manzana (~150 g)",
+    ref: "unidad",
+    kcal: 52,
+    p: 0.3,
+    c: 14,
+    g: 0.2
+  }, {
+    id: "naranja",
+    n: "Naranja (~150 g)",
+    ref: "unidad",
+    kcal: 47,
+    p: 0.9,
+    c: 12,
+    g: 0.1
+  }, {
+    id: "fresas",
+    n: "Fresas",
+    ref: "puñado libre",
+    kcal: 32,
+    p: 0.7,
+    c: 7.7,
+    g: 0.3
+  }, {
+    id: "arandanos",
+    n: "Arándanos",
+    ref: "puñado libre",
+    kcal: 57,
+    p: 0.7,
+    c: 14,
+    g: 0.3
+  }, {
+    id: "mango",
+    n: "Mango (100 g)",
+    ref: "porción",
+    kcal: 60,
+    p: 0.8,
+    c: 15,
+    g: 0.4
+  }, {
+    id: "pera",
+    n: "Pera (~150 g)",
+    ref: "unidad",
+    kcal: 57,
+    p: 0.4,
+    c: 15,
+    g: 0.1
+  }, {
+    id: "kiwi",
+    n: "Kiwi (~80 g)",
+    ref: "unidad",
+    kcal: 61,
+    p: 1.1,
+    c: 15,
+    g: 0.5
+  }, {
+    id: "sandia",
+    n: "Sandía",
+    ref: "porción libre",
+    kcal: 30,
+    p: 0.6,
+    c: 7.6,
+    g: 0.2
+  }, {
+    id: "melon",
+    n: "Melón",
+    ref: "porción libre",
+    kcal: 34,
+    p: 0.8,
+    c: 8,
+    g: 0.2
+  }, {
+    id: "cereza",
+    n: "Cerezas",
+    ref: "puñado libre",
+    kcal: 63,
+    p: 1.1,
+    c: 16,
+    g: 0.2
+  }, {
+    id: "ciruela",
+    n: "Ciruelas (2 uds)",
+    ref: "2 unidades",
+    kcal: 46,
+    p: 0.7,
+    c: 11,
+    g: 0.3
+  }, {
+    id: "melocoton",
+    n: "Melocotón / nectarina",
+    ref: "unidad ~150 g",
+    kcal: 42,
+    p: 1,
+    c: 10,
+    g: 0.3
+  }, {
+    id: "granada",
+    n: "Granada (media)",
+    ref: "media",
+    kcal: 68,
+    p: 1.7,
+    c: 17,
+    g: 1.2
+  }, {
+    id: "uva",
+    n: "Uva (puñado)",
+    ref: "puñado libre",
+    kcal: 69,
+    p: 0.7,
+    c: 18,
+    g: 0.2
+  }]
+}, {
+  id: "grasas",
+  nombre: "🥑 Grasas saludables",
+  rol: "grasa",
+  alimentos: [{
+    id: "aove",
+    n: "Aceite de oliva virgen extra",
+    ref: "cuchda ~15 ml",
+    kcal: 900,
+    p: 0,
+    c: 0,
+    g: 100
+  }, {
+    id: "aguacate",
+    n: "Aguacate",
+    ref: "tal cual",
+    kcal: 160,
+    p: 2,
+    c: 8.5,
+    g: 14.7
+  }, {
+    id: "almendras",
+    n: "Almendras",
+    ref: "tal cual",
+    kcal: 579,
+    p: 21,
+    c: 22,
+    g: 50
+  }, {
+    id: "nueces",
+    n: "Nueces",
+    ref: "tal cual",
+    kcal: 654,
+    p: 15,
+    c: 14,
+    g: 65
+  }, {
+    id: "anacardos",
+    n: "Anacardos",
+    ref: "tal cual",
+    kcal: 553,
+    p: 18,
+    c: 30,
+    g: 44
+  }, {
+    id: "pistachos",
+    n: "Pistachos",
+    ref: "tal cual",
+    kcal: 560,
+    p: 20,
+    c: 28,
+    g: 45
+  }, {
+    id: "chia",
+    n: "Semillas de chía",
+    ref: "tal cual",
+    kcal: 486,
+    p: 17,
+    c: 42,
+    g: 31
+  }, {
+    id: "lino",
+    n: "Semillas de lino molidas",
+    ref: "tal cual",
+    kcal: 534,
+    p: 18,
+    c: 29,
+    g: 42
+  }, {
+    id: "pipas",
+    n: "Pipas de girasol",
+    ref: "tal cual",
+    kcal: 584,
+    p: 21,
+    c: 20,
+    g: 51
+  }, {
+    id: "crema_cacahuete",
+    n: "Crema de cacahuete 100%",
+    ref: "tal cual",
+    kcal: 588,
+    p: 25,
+    c: 20,
+    g: 50
+  }, {
+    id: "crema_almendra",
+    n: "Crema de almendra 100%",
+    ref: "tal cual",
+    kcal: 614,
+    p: 21,
+    c: 20,
+    g: 56
+  }, {
+    id: "tahini",
+    n: "Tahini (pasta de sésamo)",
+    ref: "tal cual",
+    kcal: 595,
+    p: 17,
+    c: 21,
+    g: 54
+  }, {
+    id: "aceitunas",
+    n: "Aceitunas",
+    ref: "tal cual",
+    kcal: 145,
+    p: 1,
+    c: 3.8,
+    g: 15
+  }]
+}];
+
+/* ═══════════════════════════════════════════
+   ÍNDICE GLUCÉMICO (IG)
+   Solo relevante para alimentos con carbohidratos significativos.
+   null = no aplica (proteínas puras, grasas).
+   Bajo < 55 · Medio 55–69 · Alto ≥ 70
+═══════════════════════════════════════════ */
+const GI_BD = {
+  // Cereales
+  avena: 55,
+  arroz_integral: 50,
+  arroz_basmati: 58,
+  pasta_integral: 42,
+  pasta_legumbre: 30,
+  pan_integral: 51,
+  pan_centeno: 50,
+  cuscus: 65,
+  quinoa: 53,
+  sarraceno: 54,
+  tortitas: 82,
+  muesli_sin: 50,
+  // Tubérculos
+  patata: 70,
+  boniato: 61,
+  // Legumbres
+  lentejas: 25,
+  garbanzos: 28,
+  judias_negras: 24,
+  judias_blancas: 29,
+  azukis: 35,
+  // Lácteos
+  yogur_griego_0: 11,
+  skyr: 11,
+  queso_batido: 11,
+  queso_cottage: 10,
+  kefir: 11,
+  leche_desnatada: 30,
+  bebida_soja: 34,
+  // Proteína vegetal con algo de carbo
+  tofu_firme: 15,
+  tofu_ahumado: 15,
+  tempeh: 15,
+  soja_text: 25,
+  edamame: 18,
+  seitan: 15,
+  proteina_polvo: 20,
+  // Verdura
+  brocoli: 10,
+  espinaca: 15,
+  kale: 10,
+  pimiento_rojo: 15,
+  pimiento_verde: 15,
+  calabacin: 15,
+  tomate: 15,
+  pepino: 15,
+  berenjena: 15,
+  coliflor: 15,
+  zanahoria: 47,
+  cebolla: 10,
+  setas: 10,
+  alcachofa: 15,
+  puerro: 15,
+  acelgas: 15,
+  rucula: 10,
+  ensalada: 10,
+  maiz: 65,
+  remolacha: 64,
+  esparragos: 15,
+  apio: 15,
+  judias_verdes: 30,
+  pak_choi: 10,
+  // Fruta
+  platano: 51,
+  manzana: 36,
+  naranja: 42,
+  fresas: 40,
+  arandanos: 53,
+  mango: 51,
+  pera: 38,
+  kiwi: 50,
+  sandia: 76,
+  melon: 65,
+  cereza: 22,
+  ciruela: 40,
+  melocoton: 42,
+  granada: 35,
+  uva: 46,
+  // Grasas / frutos secos (IG bajo por mínimos carbos)
+  aguacate: 10,
+  almendras: 15,
+  nueces: 15,
+  anacardos: 25,
+  pistachos: 15,
+  chia: 1,
+  lino: 1,
+  pipas: 15,
+  crema_cacahuete: 14,
+  crema_almendra: 15,
+  tahini: 35,
+  aceitunas: 15,
+  // Pescado con algo de carbo
+  mejillones: 15,
+  sepia: 15
+  // Todo lo demás (carnes, huevo, AOVE, proteínas puras): null → no aplica
+};
+function getGI(id) {
+  return GI_BD[id] ?? null;
+}
+function claseGI(gi) {
+  if (gi === null) return null;
+  if (gi < 55) return {
+    label: "IG bajo",
+    color: "text-emerald-600",
+    bg: "bg-emerald-100"
+  };
+  if (gi < 70) return {
+    label: "IG medio",
+    color: "text-amber-600",
+    bg: "bg-amber-100"
+  };
+  return {
+    label: "IG alto",
+    color: "text-rose-600",
+    bg: "bg-rose-100"
+  };
+}
+
+// IG ponderado del plato: promedio de GI de sus ingredientes pesado por gramos de carbo
+function calcularGIPlato(ingredientes) {
+  let sumCxGI = 0,
+    sumC = 0;
+  (ingredientes || []).forEach(ing => {
+    const gi = getGI(ing.id);
+    const carboG = ing.macrosTodos?.c ?? 0;
+    if (gi !== null && carboG > 2) {
+      sumCxGI += gi * carboG;
+      sumC += carboG;
+    }
+  });
+  return sumC > 0 ? Math.round(sumCxGI / sumC) : null;
+}
+// Cada plato define qué grupos de alimentos necesita y un descrip. de 1 línea.
+// "grupos" son IDs de GRUPOS. El algoritmo luego busca qué alimentos tiene el usuario en esos grupos.
+const PLATOS = {
+  desayuno: [{
+    id: "d1",
+    desc: "Porridge cremoso con fruta fresca y un toque de nueces — el desayuno que te aguanta hasta la hora de comer",
+    slots: [{
+      rol: "c",
+      grupos: ["cereales"],
+      req: true
+    }, {
+      rol: "f",
+      grupos: ["fruta"],
+      req: true
+    }, {
+      rol: "g",
+      grupos: ["grasas"],
+      req: false
+    }, {
+      rol: "p",
+      grupos: ["lacteos"],
+      req: false
+    }]
+  }, {
+    id: "d2",
+    desc: "Tostada de pan integral con aguacate y huevo — el clásico que no falla y que deja con ganas de repetir",
+    slots: [{
+      rol: "c",
+      grupos: ["cereales"],
+      req: true
+    }, {
+      rol: "p",
+      grupos: ["huevo"],
+      req: true
+    }, {
+      rol: "g",
+      grupos: ["grasas"],
+      req: false
+    }]
+  }, {
+    id: "d3",
+    desc: "Bowl de skyr o yogur griego con frutas del tiempo y semillas — rápido, sin cocinar y con más proteína de la que parece",
+    slots: [{
+      rol: "p",
+      grupos: ["lacteos"],
+      req: true
+    }, {
+      rol: "f",
+      grupos: ["fruta"],
+      req: true
+    }, {
+      rol: "g",
+      grupos: ["grasas"],
+      req: false
+    }]
+  }, {
+    id: "d4",
+    desc: "Tortilla de verduras salteadas — proteína desde primera hora con lo que tengas en la nevera",
+    slots: [{
+      rol: "p",
+      grupos: ["huevo"],
+      req: true
+    }, {
+      rol: "v",
+      grupos: ["verdura"],
+      req: true
+    }, {
+      rol: "c",
+      grupos: ["cereales"],
+      req: false
+    }]
+  }, {
+    id: "d5",
+    desc: "Batido de proteína con plátano y avena — listo en 2 minutos, con energía para horas",
+    slots: [{
+      rol: "p",
+      grupos: ["proteina_vegetal", "lacteos"],
+      req: true
+    }, {
+      rol: "c",
+      grupos: ["cereales"],
+      req: true
+    }, {
+      rol: "f",
+      grupos: ["fruta"],
+      req: true
+    }]
+  }, {
+    id: "d6",
+    desc: "Tostada de pan de centeno con salmón ahumado y aguacate — desayuno de lujo en 5 minutos",
+    slots: [{
+      rol: "c",
+      grupos: ["cereales"],
+      req: true
+    }, {
+      rol: "p",
+      grupos: ["pescado"],
+      req: true
+    }, {
+      rol: "g",
+      grupos: ["grasas"],
+      req: false
+    }]
+  }, {
+    id: "d7",
+    desc: "Muesli con bebida vegetal, fruta y crema de cacahuete — el desayuno que tú montas sin cocinar nada",
+    slots: [{
+      rol: "c",
+      grupos: ["cereales"],
+      req: true
+    }, {
+      rol: "p",
+      grupos: ["lacteos", "proteina_vegetal"],
+      req: false
+    }, {
+      rol: "f",
+      grupos: ["fruta"],
+      req: true
+    }, {
+      rol: "g",
+      grupos: ["grasas"],
+      req: false
+    }]
+  }],
+  almuerzo: [{
+    id: "a1",
+    desc: "Fruta de temporada con un puñado de frutos secos — el snack que cuida y sacia sin pasarte",
+    slots: [{
+      rol: "f",
+      grupos: ["fruta"],
+      req: true
+    }, {
+      rol: "g",
+      grupos: ["grasas"],
+      req: true
+    }]
+  }, {
+    id: "a2",
+    desc: "Yogur con arándanos y una pizca de canela — pequeño, fresco y con proteína de fondo",
+    slots: [{
+      rol: "p",
+      grupos: ["lacteos"],
+      req: true
+    }, {
+      rol: "f",
+      grupos: ["fruta"],
+      req: true
+    }]
+  }, {
+    id: "a3",
+    desc: "Tostada de centeno con hummus casero — el snack vegetal que sacia sin hacerte pesado/a",
+    slots: [{
+      rol: "c",
+      grupos: ["cereales"],
+      req: true
+    }, {
+      rol: "p",
+      grupos: ["legumbres"],
+      req: true
+    }]
+  }, {
+    id: "a4",
+    desc: "Edamame con sal marina — crujiente, proteico y japonés; el snack de los que saben lo que hacen",
+    slots: [{
+      rol: "p",
+      grupos: ["proteina_vegetal"],
+      req: true
+    }]
+  }, {
+    id: "a5",
+    desc: "Tortitas de arroz con crema de almendra — sin gluten, sin excusas y con energía para la tarde",
+    slots: [{
+      rol: "c",
+      grupos: ["cereales"],
+      req: true
+    }, {
+      rol: "g",
+      grupos: ["grasas"],
+      req: true
+    }]
+  }],
+  comida: [{
+    id: "c1",
+    desc: "Lentejas estofadas con arroz integral y verduras de temporada — el plato que nutre de verdad, sin necesitar carne",
+    slots: [{
+      rol: "p",
+      grupos: ["legumbres"],
+      req: true
+    }, {
+      rol: "c",
+      grupos: ["cereales", "tuberculos"],
+      req: true
+    }, {
+      rol: "v",
+      grupos: ["verdura"],
+      req: true
+    }, {
+      rol: "g",
+      grupos: ["grasas"],
+      req: false
+    }]
+  }, {
+    id: "c2",
+    desc: "Pollo al limón con boniato asado y verduras al vapor — sencillo, limpio y con todo lo que tu cuerpo necesita",
+    slots: [{
+      rol: "p",
+      grupos: ["carne"],
+      req: true
+    }, {
+      rol: "c",
+      grupos: ["tuberculos"],
+      req: true
+    }, {
+      rol: "v",
+      grupos: ["verdura"],
+      req: true
+    }, {
+      rol: "g",
+      grupos: ["grasas"],
+      req: false
+    }]
+  }, {
+    id: "c3",
+    desc: "Pasta integral con tofu salteado, pimiento y salsa de tomate — la pasta que sí puedes comer cuando sabes cómo hacerla",
+    slots: [{
+      rol: "c",
+      grupos: ["cereales"],
+      req: true
+    }, {
+      rol: "p",
+      grupos: ["proteina_vegetal"],
+      req: true
+    }, {
+      rol: "v",
+      grupos: ["verdura"],
+      req: true
+    }]
+  }, {
+    id: "c4",
+    desc: "Salmón al horno con quinoa y espárragos — elegante sin esfuerzo, y con unos omegas que querrás en cada comida",
+    slots: [{
+      rol: "p",
+      grupos: ["pescado"],
+      req: true
+    }, {
+      rol: "c",
+      grupos: ["cereales"],
+      req: true
+    }, {
+      rol: "v",
+      grupos: ["verdura"],
+      req: true
+    }]
+  }, {
+    id: "c5",
+    desc: "Garbanzos con espinacas y huevo escalfado — proteína triple (legumbre + huevo), sabor redondo y listo en 15 minutos",
+    slots: [{
+      rol: "p",
+      grupos: ["legumbres", "huevo"],
+      req: true
+    }, {
+      rol: "v",
+      grupos: ["verdura"],
+      req: true
+    }, {
+      rol: "g",
+      grupos: ["grasas"],
+      req: false
+    }]
+  }, {
+    id: "c6",
+    desc: "Merluza a la plancha con patata al vapor y pisto de temporada — ligero, mediterráneo y que sabe a casa",
+    slots: [{
+      rol: "p",
+      grupos: ["pescado"],
+      req: true
+    }, {
+      rol: "c",
+      grupos: ["tuberculos"],
+      req: true
+    }, {
+      rol: "v",
+      grupos: ["verdura"],
+      req: true
+    }]
+  }, {
+    id: "c7",
+    desc: "Wok de tempeh con arroz integral y brócoli al ajoaceite — energético, vegetal y con un punto oriental que engancha",
+    slots: [{
+      rol: "p",
+      grupos: ["proteina_vegetal"],
+      req: true
+    }, {
+      rol: "c",
+      grupos: ["cereales"],
+      req: true
+    }, {
+      rol: "v",
+      grupos: ["verdura"],
+      req: true
+    }]
+  }, {
+    id: "c8",
+    desc: "Ensalada de garbanzos, atún y aguacate con pan de centeno — fresca, saciante y sin encender el fuego",
+    slots: [{
+      rol: "p",
+      grupos: ["legumbres", "pescado"],
+      req: true
+    }, {
+      rol: "g",
+      grupos: ["grasas"],
+      req: true
+    }, {
+      rol: "c",
+      grupos: ["cereales"],
+      req: false
+    }, {
+      rol: "v",
+      grupos: ["verdura"],
+      req: true
+    }]
+  }, {
+    id: "c9",
+    desc: "Quinoa con verduras asadas y tofu marinado — colorido, lleno de textura y que deja saciado/a de verdad",
+    slots: [{
+      rol: "c",
+      grupos: ["cereales"],
+      req: true
+    }, {
+      rol: "p",
+      grupos: ["proteina_vegetal"],
+      req: true
+    }, {
+      rol: "v",
+      grupos: ["verdura"],
+      req: true
+    }]
+  }, {
+    id: "c10",
+    desc: "Pechuga de pavo rellena de espinacas con arroz y zanahorias al vapor — el clásico reinventado para no aburrirte",
+    slots: [{
+      rol: "p",
+      grupos: ["carne"],
+      req: true
+    }, {
+      rol: "c",
+      grupos: ["cereales"],
+      req: true
+    }, {
+      rol: "v",
+      grupos: ["verdura"],
+      req: true
+    }]
+  }],
+  merienda: [{
+    id: "m1",
+    desc: "Manzana con crema de cacahuete natural — el dúo que da energía y sacia para llegar bien a cenar",
+    slots: [{
+      rol: "f",
+      grupos: ["fruta"],
+      req: true
+    }, {
+      rol: "g",
+      grupos: ["grasas"],
+      req: true
+    }]
+  }, {
+    id: "m2",
+    desc: "Queso batido con canela y frutos rojos — dulce sin ser dulce, y con proteína sin que se note",
+    slots: [{
+      rol: "p",
+      grupos: ["lacteos"],
+      req: true
+    }, {
+      rol: "f",
+      grupos: ["fruta"],
+      req: true
+    }]
+  }, {
+    id: "m3",
+    desc: "Tortitas de arroz con aguacate y sal en escamas — crujiente, fresco y que no pesa en la tarde",
+    slots: [{
+      rol: "c",
+      grupos: ["cereales"],
+      req: true
+    }, {
+      rol: "g",
+      grupos: ["grasas"],
+      req: true
+    }]
+  }, {
+    id: "m4",
+    desc: "Kéfir con plátano y semillas de chía — probióticos, potasio y omega-3 en un vaso; tu merienda más inteligente",
+    slots: [{
+      rol: "p",
+      grupos: ["lacteos"],
+      req: true
+    }, {
+      rol: "f",
+      grupos: ["fruta"],
+      req: true
+    }, {
+      rol: "g",
+      grupos: ["grasas"],
+      req: false
+    }]
+  }, {
+    id: "m5",
+    desc: "Un puñado de nueces con una pieza de fruta de temporada — 5 segundos de preparación, resultados de horas",
+    slots: [{
+      rol: "g",
+      grupos: ["grasas"],
+      req: true
+    }, {
+      rol: "f",
+      grupos: ["fruta"],
+      req: true
+    }]
+  }],
+  cena: [{
+    id: "ce1",
+    desc: "Crema de calabacín suave con huevo pochado y tostada integral — reconfortante, ligera y con proteína para la noche",
+    slots: [{
+      rol: "v",
+      grupos: ["verdura"],
+      req: true
+    }, {
+      rol: "p",
+      grupos: ["huevo"],
+      req: true
+    }, {
+      rol: "c",
+      grupos: ["cereales"],
+      req: false
+    }]
+  }, {
+    id: "ce2",
+    desc: "Ensalada de atún con aguacate, tomate y rúcula — fresca, saciante y sin cocinar nada en absoluto",
+    slots: [{
+      rol: "p",
+      grupos: ["pescado"],
+      req: true
+    }, {
+      rol: "g",
+      grupos: ["grasas"],
+      req: true
+    }, {
+      rol: "v",
+      grupos: ["verdura"],
+      req: true
+    }]
+  }, {
+    id: "ce3",
+    desc: "Tortilla francesa de setas y espárragos con ensalada — vegetal, rápida y con el sabor de lo hecho en casa",
+    slots: [{
+      rol: "p",
+      grupos: ["huevo"],
+      req: true
+    }, {
+      rol: "v",
+      grupos: ["verdura"],
+      req: true
+    }]
+  }, {
+    id: "ce4",
+    desc: "Sopa de miso con tofu sedoso y verduras — japonesa, calentita y que cuida la microbiota sin darte cuenta",
+    slots: [{
+      rol: "p",
+      grupos: ["proteina_vegetal"],
+      req: true
+    }, {
+      rol: "v",
+      grupos: ["verdura"],
+      req: true
+    }]
+  }, {
+    id: "ce5",
+    desc: "Merluza al papillote con limón y verduras al vapor — la cena que deja el hígado feliz y el cuerpo descansado",
+    slots: [{
+      rol: "p",
+      grupos: ["pescado"],
+      req: true
+    }, {
+      rol: "v",
+      grupos: ["verdura"],
+      req: true
+    }]
+  }, {
+    id: "ce6",
+    desc: "Revuelto de setas con espinacas y pan de centeno — la cena de los días sin ganas: lista en 10 minutos y rica de verdad",
+    slots: [{
+      rol: "p",
+      grupos: ["huevo"],
+      req: true
+    }, {
+      rol: "v",
+      grupos: ["verdura"],
+      req: true
+    }, {
+      rol: "c",
+      grupos: ["cereales"],
+      req: false
+    }]
+  }, {
+    id: "ce7",
+    desc: "Garbanzos al curry con leche de coco y espinacas — especiado, vegetal y sorprendentemente saciante",
+    slots: [{
+      rol: "p",
+      grupos: ["legumbres"],
+      req: true
+    }, {
+      rol: "v",
+      grupos: ["verdura"],
+      req: true
+    }]
+  }, {
+    id: "ce8",
+    desc: "Pechuga de pollo con pisto de verduras y aguacate — la cena ligera que mantiene el músculo sin cargar el estómago",
+    slots: [{
+      rol: "p",
+      grupos: ["carne"],
+      req: true
+    }, {
+      rol: "v",
+      grupos: ["verdura"],
+      req: true
+    }, {
+      rol: "g",
+      grupos: ["grasas"],
+      req: false
+    }]
+  }]
+};
+
+/* ═══════════════════════════════════════════
+   CONSTANTES
+═══════════════════════════════════════════ */
+const TABS = [{
+  id: "fase1",
+  label: "📊 Tu objetivo"
+}, {
+  id: "progreso",
+  label: "📈 Progreso"
+}, {
+  id: "menu",
+  label: "🍽️ Menú semanal"
+}, {
+  id: "recetario",
+  label: "📖 Recetario"
+}];
+const DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+const COMIDAS_DIA = ["desayuno", "almuerzo", "comida", "merienda", "cena"];
+const COMIDA_EMOJI = {
+  desayuno: "🌅",
+  almuerzo: "☀️",
+  comida: "🍽️",
+  merienda: "🍵",
+  cena: "🌙"
+};
+const COMIDA_LABEL = {
+  desayuno: "Desayuno",
+  almuerzo: "Media mañana",
+  comida: "Comida",
+  merienda: "Merienda",
+  cena: "Cena"
+};
+const REPARTO_KCAL = {
+  desayuno: 0.2,
+  almuerzo: 0.1,
+  comida: 0.35,
+  merienda: 0.1,
+  cena: 0.25
+};
+const FACTORES_NEAT = [{
+  id: "sedentario",
+  f: 0,
+  label: "Trabajo sentado, sin ejercicio",
+  desc: "Paso el día en silla — el deporte lo añado con el slider"
+}, {
+  id: "pie",
+  f: 0.1,
+  label: "Trabajo de pie / activo",
+  desc: "Paso muchas horas moviéndome aunque no haga deporte formal"
+}];
+const FRASES = ["No buscamos la perfección. Buscamos la consistencia. Son cosas muy distintas.", "Un día flojo no borra semanas de esfuerzo. ¡Sigue adelante!", "Tu cuerpo cambia por lo que haces la mayoría del tiempo.", "Las pequeñas mejoras se acumulan. Un 1% mejor cada día es un 37% mejor al año.", "Esto no es una dieta. Es aprender a cuidarte de por vida.", "Cada decisión saludable es un voto a favor de quien quieres ser.", "Lo estás haciendo genial. Confía en el proceso."];
+
+/* ═══════════════════════════════════════════
+   CÁLCULOS
+═══════════════════════════════════════════ */
+function calcTMB(sexo, peso, altura, edad) {
+  const b = 10 * peso + 6.25 * altura - 5 * edad;
+  return sexo === "hombre" ? b + 5 : b - 161;
+}
+// TDEE con horas de deporte:
+// Base sedentaria (1.2) = NEAT mínimo para funciones básicas del día
+// Cada hora de deporte/semana aporta aprox. 35 kcal adicionales / kcal de TMB,
+// equivalente a sumar un 3.5% del TMB por hora a la semana.
+// Factor resultante: 1.2 (0 h) → 1.375 (5 h) → 1.55 (10 h) → 1.9 (20 h)
+function calcTDEE(tmb, horasDeporte, trabajoPie) {
+  const extra = trabajoPie ? 0.1 : 0;
+  return tmb * (1.2 + extra + Math.min(horasDeporte * 0.035, 0.7));
+}
+function calcIMC(peso, alturaCm) {
+  const m = alturaCm / 100;
+  return peso / (m * m);
+}
+function clasifIMC(imc) {
+  if (imc < 18.5) return {
+    t: "Por debajo de tu rango habitual",
+    c: "info"
+  };
+  if (imc < 25) return {
+    t: "Dentro del rango saludable ✨",
+    c: "bien"
+  };
+  if (imc < 30) return {
+    t: "Algo por encima del rango saludable",
+    c: "alerta"
+  };
+  return {
+    t: "Bastante por encima del rango saludable",
+    c: "alerta"
+  };
+}
+function calcGrasa({
+  sexo,
+  cintura,
+  cadera,
+  cuello,
+  alturaCm
+}) {
+  if (sexo === "hombre") {
+    const d = cintura - cuello;
+    if (d <= 0) return null;
+    return 495 / (1.0324 - 0.19077 * Math.log10(d) + 0.15456 * Math.log10(alturaCm)) - 450;
+  }
+  const s = cintura + cadera - cuello;
+  if (s <= 0) return null;
+  return 495 / (1.29579 - 0.35004 * Math.log10(s) + 0.221 * Math.log10(alturaCm)) - 450;
+}
+function clasifGrasa(sexo, pct) {
+  const t = sexo === "hombre" ? [[0, 6, "Muy baja"], [6, 14, "Atlética 🏆"], [14, 18, "En forma 💪"], [18, 25, "Aceptable"], [25, 99, "Alta"]] : [[0, 14, "Muy baja"], [14, 21, "Atlética 🏆"], [21, 25, "En forma 💪"], [25, 32, "Aceptable"], [32, 99, "Alta"]];
+  return t.find(([a, b]) => pct >= a && pct < b)?.[2] ?? "—";
+}
+function calcICC(c, ca) {
+  return c / ca;
+}
+function clasifICC(sexo, icc) {
+  return icc <= (sexo === "hombre" ? 0.9 : 0.85) ? {
+    t: "Distribución saludable de la grasa ✨",
+    c: "bien"
+  } : {
+    t: "Hay algo de grasa abdominal a vigilar",
+    c: "alerta"
+  };
+}
+function simbolo(actual, anterior) {
+  if (anterior == null) return "→";
+  const d = actual - anterior;
+  if (Math.abs(d) < 0.3) return "→";
+  return d < 0 ? "↓" : "↑";
+}
+function perdStr(v) {
+  return v < 1 ? `${Math.round(v * 1000)} g` : `${v.toFixed(2)} kg`;
+}
+
+/* ═══════════════════════════════════════════
+   GENERACIÓN MENÚ (usando PLATOS curados)
+═══════════════════════════════════════════ */
+// ─── Generación local del menú (sin API, sin fetch) ──────────────────────────
+
+function findAlConOffset(grupoIds, sels, offset) {
+  const todos = [];
+  grupoIds.forEach(gId => {
+    const grupo = GRUPOS.find(g => g.id === gId);
+    if (grupo) grupo.alimentos.forEach(a => {
+      if (sels[a.id]) todos.push({
+        al: a,
+        grupo
+      });
+    });
+  });
+  if (!todos.length) return null;
+  return todos[Math.abs(offset) % todos.length];
+}
+function platoPuede(plato, sels, habitos) {
+  return plato.slots.every(s => {
+    if (!s.req) return true;
+    return s.grupos.some(gId => {
+      const grupo = GRUPOS.find(g => g.id === gId);
+      if (!grupo) return false;
+      if (habitos) {
+        if (habitos.noCarne && grupo.excluible === "noCarne") return false;
+        if (habitos.noPescado && grupo.excluible === "noPescado") return false;
+        if (habitos.sinLacteos && grupo.excluible === "sinLacteos") return false;
+        if (habitos.veggie && ["carne", "pescado", "huevo"].includes(grupo.id)) return false;
+      }
+      return grupo.alimentos.some(a => sels[a.id]);
+    });
+  });
+}
+function buildPlatoLocal(plato, sels, macros, comida, offset) {
+  const pct = REPARTO_KCAL[comida] || 0.2;
+  const tP = macros.proteina * pct,
+    tC = macros.carbohidrato * pct,
+    tG = macros.grasa * pct;
+  const ingredientes = [],
+    paraNombre = [];
+  plato.slots.forEach((s, si) => {
+    const found = findAlConOffset(s.grupos, sels, offset + si * 13);
+    if (!found) return;
+    const {
+      al,
+      grupo
+    } = found;
+    let gramos = null,
+      macrosTodos = null,
+      macroLabel = "";
+    if (s.rol === "p" && al.p > 0) gramos = Math.round(tP / al.p * 100);else if (s.rol === "c" && al.c > 0) gramos = Math.round(tC / al.c * 100);else if (s.rol === "g" && al.g > 0) gramos = Math.round(tG / al.g * 100);else if (s.rol === "v" || s.rol === "f") macroLabel = grupo.rol === "fruta" ? "1 pieza" : "al gusto";
+    if (gramos !== null) {
+      const f = gramos / 100;
+      macrosTodos = {
+        p: Math.round(al.p * f),
+        c: Math.round(al.c * f),
+        g: Math.round(al.g * f),
+        kcal: Math.round(al.kcal * f)
+      };
+    }
+    ingredientes.push({
+      id: al.id,
+      nombre: al.n,
+      gramos,
+      ref: al.ref,
+      macroLabel,
+      macrosTodos
+    });
+    // Para el nombre usamos proteína, carbohidrato y verdura — no la grasa
+    if (s.rol !== "g") paraNombre.push(al.n);
+  });
+
+  // Nombre: construido de los ingredientes REALES del usuario
+  const [primero, ...resto] = paraNombre;
+  const nombre = primero ? primero + (resto.length ? " con " + resto.slice(0, 2).join(" y ") : "") : "Plato del día";
+
+  // Descripción: la parte genérica del template (después del " — ")
+  // Ej: "Salmón con quinoa — elegante sin esfuerzo" → desc = "Elegante sin esfuerzo"
+  const partes = plato.desc.split(" — ");
+  const descripcion = (partes[1] || partes[0] || "").trim();
+  const desc = descripcion.charAt(0).toUpperCase() + descripcion.slice(1);
+  return {
+    nombre: nombre.charAt(0).toUpperCase() + nombre.slice(1),
+    descripcion: desc,
+    ingredientes,
+    guardado: false
+  };
+}
+function generarDiaLocal(diaNombre, macros, kcalObj, sels, habitos, actDia) {
+  const base = (DIAS.indexOf(diaNombre) + 1) * 7 + new Date().getDate() % 7;
+  const comidas = {};
+
+  // Ajuste de macros según actividad (más carbo en día de entreno intenso)
+  const macrosAdj = {
+    ...macros
+  };
+  if (actDia && actDia.intens === "intensa") {
+    macrosAdj.carbohidrato = Math.round(macros.carbohidrato * 1.1);
+    macrosAdj.grasa = Math.round(macros.grasa * 0.9);
+  }
+  COMIDAS_DIA.forEach((comida, ci) => {
+    const plantillas = (PLATOS[comida] || []).filter(p => platoPuede(p, sels, habitos));
+    if (!plantillas.length) {
+      comidas[comida] = [];
+      return;
+    }
+    const offset = base + ci * 31;
+    const i1 = offset % plantillas.length;
+    const i2 = (offset + Math.ceil(plantillas.length / 2)) % plantillas.length;
+    const p1 = plantillas[i1],
+      p2 = plantillas[i2];
+    const op1 = buildPlatoLocal(p1, sels, macrosAdj, comida, offset);
+    const ops = [op1];
+    if (p2 && p2.id !== p1.id) ops.push(buildPlatoLocal(p2, sels, macrosAdj, comida, offset + 17));
+    comidas[comida] = ops;
+  });
+  return {
+    nombre: diaNombre,
+    comidas
+  };
+}
+
+// ─── Adaptación de recetas (reglas locales, sin API) ─────────────────────────
+
+const REGLAS_SUSTITUCION = [[/pasta\s*(de\s*trigo|blanca|normal)?/i, "Cambia la pasta por pasta de lentejas o garbanzos — más proteína con el mismo sabor"], [/nata|crema\s*de\s*leche/i, "Sustituye la nata por yogur griego 0% — misma cremosidad, mucho menos grasa saturada"], [/mantequilla/i, "Usa aceite de oliva virgen extra en lugar de mantequilla — grasas mucho más saludables"], [/harina\s*(blanca|de\s*trigo)?/i, "Prueba con harina de avena o garbanzo — más fibra y proteína, sin grandes cambios de sabor"], [/azúcar|azucar/i, "Elimina el azúcar; si necesitas dulzor usa plátano maduro o dátiles triturados"], [/arroz\s*(blanco)?(?!\s*integral)/i, "Cámbialo por arroz integral o quinoa — más fibra e IG mucho más bajo"], [/pan\s*(blanco|de\s*molde)/i, "Usa pan integral 100% o de centeno — el IG se reduce a la mitad"], [/queso\s*(curado|manchego|cheddar|gouda)/i, "Reduce el queso curado; usa queso batido 0% para cremosidad sin tanta grasa saturada"], [/aceite\s*(de\s*girasol|vegetal)/i, "Sustituye el aceite de girasol por aceite de oliva virgen extra"], [/patata(?!.*boniato)/i, "Mezcla la patata con boniato al 50% — baja el IG y suma más nutrientes"], [/carne\s*picada|hamburguesa/i, "Mezcla la carne picada con soja texturizada al 50% — igual de rico, menos grasa"], [/leche\s*(entera)?(?!\s*de\s*coco)/i, "Usa leche desnatada o bebida de soja sin azúcar para reducir la grasa"]];
+const TWISTS_EXTRA = ["Añade más verdura — duplica la ración sin apenas sumar calorías", "Cocina al vapor, al horno o a la plancha en lugar de freír", "Usa especias (cúrcuma, comino, pimentón) para dar sabor sin calorías extra", "Reduce las salsas y aderezos de bote — suelen esconder azúcar y mucha sal"];
+function adaptarRecetaLocal(texto, macros, kcalObj, alimentosDisp) {
+  const twists = [];
+  REGLAS_SUSTITUCION.forEach(([test, twist]) => {
+    if (test.test(texto) && twists.length < 3) twists.push(twist);
+  });
+  TWISTS_EXTRA.forEach(t => {
+    if (twists.length < 3) twists.push(t);
+  });
+  const tP = macros.proteina * 0.35,
+    tC = macros.carbohidrato * 0.35,
+    tG = macros.grasa * 0.35;
+  const byRol = rol => alimentosDisp.find(a => a.rol === rol);
+  function ingDesde(al, rol, target) {
+    if (!al) return null;
+    const macro = rol === "proteina" ? al.p : rol === "carbohidrato" ? al.c : al.g;
+    if (!macro) return null;
+    const gramos = Math.round(target / macro * 100);
+    const f = gramos / 100;
+    return {
+      id: al.id,
+      nombre: al.n,
+      gramos,
+      ref: al.ref || "tal cual",
+      macroLabel: "",
+      macrosTodos: {
+        p: Math.round(al.p * f),
+        c: Math.round(al.c * f),
+        g: Math.round(al.g * f),
+        kcal: Math.round(al.kcal * f)
+      }
+    };
+  }
+  const ingredientes = [ingDesde(byRol("proteina"), "proteina", tP), ingDesde(byRol("carbohidrato"), "carbohidrato", tC), ingDesde(byRol("grasa"), "grasa", tG), {
+    nombre: "Verdura al gusto",
+    gramos: null,
+    ref: "libre",
+    macroLabel: "al gusto",
+    macrosTodos: null
+  }].filter(Boolean);
+  const nombre = texto.split("\n")[0].trim().slice(0, 55) + " · versión saludable";
+  return {
+    nombre,
+    twists: twists.slice(0, 3),
+    ingredientes,
+    kcal: Math.round(tP * 4 + tC * 4 + tG * 9)
+  };
+}
+
+/* Recalcula los gramos de cada ingrediente usando la BD nutricional.
+   La IA elige QUÉ alimentos usar; nosotros calculamos CUÁNTO hace falta
+   para cumplir exactamente el objetivo de proteína/carbo/grasa de esa comida. */
+function recalcularGramos(comidasIA, macros) {
+  const resultado = {};
+  COMIDAS_DIA.forEach(c => {
+    const pct = REPARTO_KCAL[c] || 0.2;
+    const tP = macros.proteina * pct;
+    const tC = macros.carbohidrato * pct;
+    const tG = macros.grasa * pct;
+    resultado[c] = (comidasIA[c] || []).map(op => {
+      let protAsignada = false,
+        carboAsignado = false,
+        grasaAsignada = false;
+      const ingredientesCalc = (op.ingredientes || []).map(ing => {
+        let alBD = null;
+        let grupoBD = null;
+        for (const gr of GRUPOS) {
+          const encontrado = gr.alimentos.find(a => {
+            const nb = (a.n || '').toLowerCase();
+            const ni = (ing.nombre || '').toLowerCase();
+            return nb === ni || nb.includes(ni) || ni.includes(nb);
+          });
+          if (encontrado) {
+            alBD = encontrado;
+            grupoBD = gr;
+            break;
+          }
+        }
+        if (!alBD) return ing;
+        let gramos = ing.gramos;
+        if (grupoBD.rol === 'proteina' && alBD.p > 0 && !protAsignada) {
+          gramos = Math.round(tP / alBD.p * 100);
+          protAsignada = true;
+        } else if (grupoBD.rol === 'carbohidrato' && alBD.c > 0 && !carboAsignado) {
+          gramos = Math.round(tC / alBD.c * 100);
+          carboAsignado = true;
+        } else if (grupoBD.rol === 'grasa' && alBD.g > 0 && !grasaAsignada) {
+          gramos = Math.round(tG / alBD.g * 100);
+          grasaAsignada = true;
+        } else if (grupoBD.rol === 'verdura') {
+          return {
+            ...ing,
+            gramos: null,
+            ref: alBD.ref || ing.ref,
+            macroLabel: 'al gusto',
+            macrosTodos: null
+          };
+        } else if (grupoBD.rol === 'fruta') {
+          return {
+            ...ing,
+            gramos: null,
+            ref: alBD.ref || ing.ref,
+            macroLabel: '1 pieza',
+            macrosTodos: null
+          };
+        }
+
+        // Calcular TODOS los macros reales para los gramos asignados
+        const f = (gramos || 0) / 100;
+        const macrosTodos = {
+          p: Math.round(alBD.p * f),
+          c: Math.round(alBD.c * f),
+          g: Math.round(alBD.g * f),
+          kcal: Math.round(alBD.kcal * f)
+        };
+        return {
+          ...ing,
+          gramos,
+          ref: alBD.ref || ing.ref,
+          macroLabel: '',
+          macrosTodos
+        };
+      });
+      return {
+        ...op,
+        ingredientes: ingredientesCalc
+      };
+    });
+  });
+  return resultado;
+}
+
+/* ═══════════════════════════════════════════
+   STORAGE
+═══════════════════════════════════════════ */
+async function loadS(key, fb) {
+  try {
+    const r = await window.storage.get(key);
+    return r ? JSON.parse(r.value) : fb;
+  } catch {
+    return fb;
+  }
+}
+async function saveS(key, val) {
+  try {
+    await window.storage.set(key, JSON.stringify(val));
+  } catch {}
+}
+
+/* ═══════════════════════════════════════════
+   UI BASE
+═══════════════════════════════════════════ */
+const Card = ({
+  children,
+  cls = ""
+}) => /*#__PURE__*/React.createElement("div", {
+  className: `rounded-2xl border border-stone-200 bg-white p-5 shadow-sm ${cls}`
+}, children);
+const Expl = ({
+  children
+}) => /*#__PURE__*/React.createElement("p", {
+  className: "mt-2 text-sm leading-relaxed text-stone-500"
+}, children);
+const Lbl = ({
+  children
+}) => /*#__PURE__*/React.createElement("label", {
+  className: "block text-sm font-medium text-stone-700 mb-1"
+}, children);
+const Inp = ({
+  className: cls = "",
+  ...p
+}) => /*#__PURE__*/React.createElement("input", {
+  ...p,
+  className: `w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-stone-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-100 ${cls}`
+});
+const Sel = ({
+  className: cls = "",
+  children,
+  ...p
+}) => /*#__PURE__*/React.createElement("select", {
+  ...p,
+  className: `rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm focus:border-emerald-600 focus:outline-none ${cls || "w-full"}`
+}, children);
+function PasoHdr({
+  n,
+  total,
+  titulo
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 mb-1"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "flex h-7 w-7 items-center justify-center rounded-full bg-emerald-700 text-xs font-semibold text-white"
+  }, n), /*#__PURE__*/React.createElement("h3", {
+    className: "font-serif text-lg text-stone-900"
+  }, titulo), /*#__PURE__*/React.createElement("span", {
+    className: "ml-auto text-xs text-stone-400"
+  }, n, "/", total));
+}
+function MacroBar({
+  nombre,
+  gramos,
+  kcal,
+  pct,
+  color
+}) {
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-baseline justify-between text-sm"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-medium text-stone-700"
+  }, nombre), /*#__PURE__*/React.createElement("span", {
+    className: "text-stone-500"
+  }, Math.round(gramos), "g · ", Math.round(kcal), " kcal · ", pct, "%")), /*#__PURE__*/React.createElement("div", {
+    className: "mt-1 h-2.5 w-full overflow-hidden rounded-full bg-stone-100"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: `h-full rounded-full ${color}`,
+    style: {
+      width: `${pct}%`
+    }
+  })));
+}
+function FraseDia() {
+  const f = useMemo(() => FRASES[Math.floor(Math.random() * FRASES.length)], []);
+  return /*#__PURE__*/React.createElement("p", {
+    className: "text-xs italic text-emerald-700 border-l-2 border-emerald-300 pl-3 mt-3"
+  }, f);
+}
+function NavButtons({
+  prev,
+  next,
+  prevLabel = "← Anterior",
+  nextLabel = "Siguiente →"
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-3 mt-2 pb-2"
+  }, prev && /*#__PURE__*/React.createElement("button", {
+    onClick: prev,
+    className: "rounded-full border border-stone-300 px-5 py-2 text-sm font-medium text-stone-600 hover:border-emerald-400 transition"
+  }, prevLabel), next && /*#__PURE__*/React.createElement("button", {
+    onClick: next,
+    className: "rounded-full bg-emerald-700 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-800 transition"
+  }, nextLabel));
+}
+
+/* ═══════════════════════════════════════════
+   GRÁFICA DE PROGRESO
+═══════════════════════════════════════════ */
+function GraficaProgreso({
+  entradas
+}) {
+  const [detalle, setDetalle] = useState(null);
+  if (!entradas || entradas.length < 2) return /*#__PURE__*/React.createElement("div", {
+    className: "rounded-xl bg-stone-50 border border-stone-200 p-4 text-center text-sm text-stone-400"
+  }, "Registra al menos 2 mediciones para ver tu tendencia aquí 📊");
+  const n = entradas.length,
+    W = 560,
+    H = 110,
+    pad = 36;
+  const xs = entradas.map((_, i) => pad + i / (n - 1) * (W - pad * 2));
+  const mapa = {
+    "↓": H - 16,
+    "→": H / 2,
+    "↑": 16
+  };
+  const points = entradas.map((e, i) => ({
+    x: xs[i],
+    y: mapa[e.simbolo] || H / 2,
+    ...e
+  }));
+  const pathD = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-stone-400 mb-2"
+  }, "Toca un punto para ver el dato exacto."), /*#__PURE__*/React.createElement("svg", {
+    viewBox: `0 0 ${W} ${H + 28}`,
+    className: "w-full"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: pathD,
+    fill: "none",
+    stroke: "#d1fae5",
+    strokeWidth: "2"
+  }), points.map((p, i) => /*#__PURE__*/React.createElement("g", {
+    key: i,
+    onClick: () => setDetalle(detalle?.i === i ? null : {
+      ...p,
+      i
+    }),
+    className: "cursor-pointer"
+  }, /*#__PURE__*/React.createElement("circle", {
+    cx: p.x,
+    cy: p.y,
+    r: "15",
+    fill: p.simbolo === "↓" ? "#d1fae5" : p.simbolo === "→" ? "#fef3c7" : "#fee2e2",
+    stroke: p.simbolo === "↓" ? "#10b981" : p.simbolo === "→" ? "#f59e0b" : "#ef4444",
+    strokeWidth: "1.5"
+  }), /*#__PURE__*/React.createElement("text", {
+    x: p.x,
+    y: p.y + 5,
+    textAnchor: "middle",
+    fontSize: "13",
+    fill: p.simbolo === "↓" ? "#059669" : p.simbolo === "→" ? "#d97706" : "#dc2626"
+  }, p.simbolo), /*#__PURE__*/React.createElement("text", {
+    x: p.x,
+    y: H + 22,
+    textAnchor: "middle",
+    fontSize: "9",
+    fill: "#a8a29e"
+  }, new Date(p.fecha).toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "2-digit"
+  }))))), detalle && /*#__PURE__*/React.createElement("div", {
+    className: "mt-2 rounded-xl bg-stone-50 border border-stone-200 p-3 text-sm"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-medium"
+  }, new Date(detalle.fecha).toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "long"
+  })), /*#__PURE__*/React.createElement("span", {
+    className: "ml-2 text-stone-500"
+  }, "Peso: ", detalle.peso, " kg · IMC: ", detalle.imc?.toFixed(1), detalle.grasa != null ? ` · Grasa: ${detalle.grasa.toFixed(1)}%` : "")));
+}
+
+/* ═══════════════════════════════════════════
+   CARD DE PLATO
+═══════════════════════════════════════════ */
+function calcularMacrosPlato(ingredientes) {
+  let p = 0,
+    c = 0,
+    g = 0,
+    kcal = 0;
+  (ingredientes || []).forEach(ing => {
+    if (ing.macrosTodos) {
+      p += ing.macrosTodos.p;
+      c += ing.macrosTodos.c;
+      g += ing.macrosTodos.g;
+      kcal += ing.macrosTodos.kcal;
+    } else if (ing.gramos) {
+      // fallback: buscar en BD
+      for (const grupo of GRUPOS) {
+        const al = grupo.alimentos.find(a => (a.n || "").toLowerCase() === (ing.nombre || "").toLowerCase());
+        if (al) {
+          const f = ing.gramos / 100;
+          p += al.p * f;
+          c += al.c * f;
+          g += al.g * f;
+          kcal += al.kcal * f;
+          break;
+        }
+      }
+    }
+  });
+  return {
+    p: Math.round(p),
+    c: Math.round(c),
+    g: Math.round(g),
+    kcal: Math.round(kcal)
+  };
+}
+function PlatoCard({
+  opcion,
+  onGuardar
+}) {
+  const [exp, setExp] = useState(false);
+  if (!opcion) return null;
+  const totales = calcularMacrosPlato(opcion.ingredientes);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "rounded-xl border border-stone-200 bg-white overflow-hidden"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "p-4"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "font-serif text-base text-stone-900 leading-snug"
+  }, opcion.nombre || "Plato del día"), opcion.descripcion && /*#__PURE__*/React.createElement("p", {
+    className: "mt-1 text-sm italic text-stone-500 leading-relaxed"
+  }, opcion.descripcion), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-3 mt-2 text-xs"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-rose-600 font-medium"
+  }, totales.p, "g prot."), /*#__PURE__*/React.createElement("span", {
+    className: "text-sky-600 font-medium"
+  }, totales.c, "g carbo"), /*#__PURE__*/React.createElement("span", {
+    className: "text-amber-600 font-medium"
+  }, totales.g, "g grasa"), /*#__PURE__*/React.createElement("span", {
+    className: "text-stone-400"
+  }, totales.kcal, " kcal")), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 mt-3 flex-wrap"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setExp(!exp),
+    className: "rounded-full border border-stone-200 px-3 py-1 text-xs text-stone-500 hover:border-emerald-300 transition"
+  }, exp ? "▲ Ocultar" : "▼ Ingredientes y cantidades"), /*#__PURE__*/React.createElement("button", {
+    onClick: onGuardar,
+    className: `rounded-full border px-3 py-1 text-xs transition ${opcion.guardado ? "border-rose-300 bg-rose-50 text-rose-600" : "border-stone-200 text-stone-500 hover:border-rose-300 hover:text-rose-500"}`
+  }, opcion.guardado ? "♥ Guardada" : "♡ Guardar receta"))), exp && /*#__PURE__*/React.createElement("div", {
+    className: "border-t border-stone-100 bg-stone-50 px-4 py-3"
+  }, /*#__PURE__*/React.createElement("ul", {
+    className: "space-y-2"
+  }, (opcion.ingredientes || []).map((ing, i) => {
+    const nombre = ing.nombre || ing.n || "";
+    const ref = ing.ref || "";
+    const gramos = ing.gramos;
+    const m = ing.macrosTodos;
+    return /*#__PURE__*/React.createElement("li", {
+      key: i
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex justify-between text-sm"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "text-stone-700 font-medium"
+    }, nombre, gramos ? /*#__PURE__*/React.createElement("span", {
+      className: "text-stone-400 font-normal"
+    }, " — ", gramos, " g ", /*#__PURE__*/React.createElement("span", {
+      className: "text-xs"
+    }, "(", ref, ")")) : /*#__PURE__*/React.createElement("span", {
+      className: "text-stone-400 font-normal"
+    }, " — ", ing.macroLabel || ref)), m && /*#__PURE__*/React.createElement("span", {
+      className: "text-xs text-stone-400 shrink-0 ml-2"
+    }, m.kcal, " kcal")), m && /*#__PURE__*/React.createElement("div", {
+      className: "flex gap-3 mt-0.5 text-xs"
+    }, m.p > 0 && /*#__PURE__*/React.createElement("span", {
+      className: "text-rose-500"
+    }, m.p, "g prot"), m.c > 0 && /*#__PURE__*/React.createElement("span", {
+      className: "text-sky-500"
+    }, m.c, "g carbo"), m.g > 0 && /*#__PURE__*/React.createElement("span", {
+      className: "text-amber-500"
+    }, m.g, "g grasa")));
+  }))));
+}
+
+/* ═══════════════════════════════════════════
+   APP PRINCIPAL
+═══════════════════════════════════════════ */
+function App() {
+  const [tab, setTab] = useState("fase1");
+
+  /* ── Fase 1 ── */
+  const [sexo, setSexo] = useState("mujer");
+  const [peso, setPeso] = useState("");
+  const [altura, setAltura] = useState("");
+  const [edad, setEdad] = useState("");
+  const [horasDeporte, setHorasDeporte] = useState(0);
+  const [trabajoPie, setTrabajoPie] = useState(false);
+  const [deficit, setDeficit] = useState(15);
+  const [gPKg, setGPKg] = useState(1.8);
+  const [pctG, setPctG] = useState(25);
+  const pesoN = parseFloat(peso) || 0,
+    altN = parseFloat(altura) || 0,
+    edadN = parseFloat(edad) || 0;
+  const datosOk = pesoN > 0 && altN > 0 && edadN > 0;
+  const tmb = useMemo(() => datosOk ? calcTMB(sexo, pesoN, altN, edadN) : 0, [sexo, pesoN, altN, edadN, datosOk]);
+  const tdee = useMemo(() => datosOk ? calcTDEE(tmb, horasDeporte, trabajoPie) : 0, [tmb, horasDeporte, trabajoPie, datosOk]);
+  const kcalObj = tdee * (1 - deficit / 100);
+  const gProteina = pesoN * gPKg,
+    kcalProt = gProteina * 4;
+  const pctProt = kcalObj > 0 ? Math.round(kcalProt / kcalObj * 100) : 0;
+  const kcalGrasa = kcalObj * (pctG / 100),
+    gGrasa = kcalGrasa / 9;
+  const pctCarbo = 100 - pctProt - pctG,
+    kcalCarbo = kcalObj * (pctCarbo / 100),
+    gCarbo = kcalCarbo / 4;
+  const macros = {
+    proteina: gProteina,
+    carbohidrato: gCarbo,
+    grasa: gGrasa
+  };
+
+  /* ── Progreso ── */
+  const [progreso, setProgreso] = useState([]);
+  const [med, setMed] = useState({
+    sexo: "mujer",
+    peso: "",
+    altura: "",
+    cintura: "",
+    cadera: "",
+    cuello: ""
+  });
+  const [medGuardada, setMedGuardada] = useState(false);
+
+  /* ── Menú ── */
+  const [habitos, setHabitos] = useState({
+    veggie: false,
+    noCarne: false,
+    noPescado: false,
+    sinLacteos: false,
+    libre: ""
+  });
+  const [sels, setSels] = useState({});
+  const [menuHoy, setMenuHoy] = useState(null);
+  const [menuError, setMenuError] = useState("");
+  const [actHoy, setActHoy] = useState({
+    diaNombre: "Hoy",
+    intens: "ninguna",
+    franja: "",
+    horas: ""
+  });
+  const [opElegida, setOpElegida] = useState({});
+
+  // Suma de macros del día según opciones elegidas — cero tokens, cálculo local
+  const macrosDia = useMemo(() => {
+    if (!menuHoy) return null;
+    let p = 0,
+      c = 0,
+      g = 0,
+      kcal = 0;
+    COMIDAS_DIA.forEach(comida => {
+      const ops = menuHoy.comidas[comida];
+      if (!ops?.length) return;
+      const op = ops[opElegida[comida] ?? 0];
+      if (!op) return;
+      const t = calcularMacrosPlato(op.ingredientes);
+      p += t.p;
+      c += t.c;
+      g += t.g;
+      kcal += t.kcal;
+    });
+    return {
+      p,
+      c,
+      g,
+      kcal
+    };
+  }, [menuHoy, opElegida]);
+  const [alimentoCustom, setAlimentoCustom] = useState({
+    n: "",
+    rol: "proteina",
+    kcal: "",
+    p: "",
+    c: "",
+    g: "",
+    ref: "tal cual"
+  });
+  const [customAlimentos, setCustomAlimentos] = useState([]);
+  const [mostrarFormCustom, setMostrarFormCustom] = useState(false);
+
+  /* ── Recetario ── */
+  const [recetario, setRecetario] = useState([]);
+  const [verReceta, setVerReceta] = useState(null);
+  const [textoReceta, setTextoReceta] = useState("");
+  const [recetaAdaptada, setRecetaAdaptada] = useState(null);
+  const [errorReceta, setErrorReceta] = useState("");
+  const [notaActual, setNotaActual] = useState({});
+  useEffect(() => {
+    loadS("progreso", []).then(setProgreso);
+    loadS("recetario", []).then(setRecetario);
+    loadS("customAlimentos", []).then(setCustomAlimentos);
+    loadS("sels", {}).then(setSels);
+    loadS("habitos", {
+      veggie: false,
+      noCarne: false,
+      noPescado: false,
+      sinLacteos: false,
+      libre: ""
+    }).then(setHabitos);
+  }, []);
+  useEffect(() => {
+    saveS("progreso", progreso);
+  }, [progreso]);
+  useEffect(() => {
+    saveS("recetario", recetario);
+  }, [recetario]);
+  useEffect(() => {
+    saveS("customAlimentos", customAlimentos);
+  }, [customAlimentos]);
+  useEffect(() => {
+    saveS("sels", sels);
+  }, [sels]);
+  useEffect(() => {
+    saveS("habitos", habitos);
+  }, [habitos]);
+
+  /* ─── Grupos visibles según hábitos ─── */
+  const gruposVisibles = useMemo(() => GRUPOS.filter(g => {
+    if (g.id === "carne" && (habitos.veggie || habitos.noCarne)) return false;
+    if (g.id === "pescado" && (habitos.veggie || habitos.noPescado)) return false;
+    if (g.id === "lacteos" && habitos.sinLacteos) return false;
+    return true;
+  }), [habitos]);
+  const todosLosAlimentos = useMemo(() => {
+    const base = gruposVisibles.flatMap(g => g.alimentos);
+    return [...base, ...customAlimentos];
+  }, [gruposVisibles, customAlimentos]);
+
+  // Grupos que sí existen pero el usuario no ha marcado nada
+  const gruposSinElegir = useMemo(() => gruposVisibles.filter(g => !g.alimentos.some(a => sels[a.id]) && !customAlimentos.some(a => sels[a.id] && a.rol === g.rol)), [gruposVisibles, sels, customAlimentos]);
+  function toggleTodos(grupo, val) {
+    const nuevo = {
+      ...sels
+    };
+    grupo.alimentos.forEach(a => {
+      nuevo[a.id] = val;
+    });
+    setSels(nuevo);
+  }
+  function toggleGlobal(val) {
+    const nuevo = {};
+    gruposVisibles.forEach(g => g.alimentos.forEach(a => {
+      nuevo[a.id] = val;
+    }));
+    setSels(nuevo);
+  }
+  function handleGenerarMenu() {
+    setMenuError("");
+    setOpElegida({});
+    try {
+      const dia = generarDiaLocal(actHoy.diaNombre || "Hoy", macros, kcalObj, sels, habitos, actHoy);
+      setMenuHoy(dia);
+    } catch (e) {
+      setMenuError("No se pudo generar el menú. Comprueba que has seleccionado alimentos.");
+      console.error(e);
+    }
+  }
+  function handleGuardarDesdeMenu(comida, opI) {
+    if (!menuHoy) return;
+    const op = menuHoy.comidas[comida]?.[opI];
+    if (!op || op.guardado) return;
+    const nueva = {
+      id: Date.now(),
+      nombreComida: op.nombre || COMIDA_LABEL[comida],
+      nombreDia: menuHoy.nombre,
+      ingredientes: op.ingredientes,
+      descripcion: op.descripcion,
+      fecha: new Date().toLocaleDateString("es-ES"),
+      nota: ""
+    };
+    setRecetario(prev => [nueva, ...prev]);
+    setMenuHoy(prev => ({
+      ...prev,
+      comidas: {
+        ...prev.comidas,
+        [comida]: prev.comidas[comida].map((o, i) => i === opI ? {
+          ...o,
+          guardado: true
+        } : o)
+      }
+    }));
+  }
+  function handleAdaptarTexto() {
+    if (!textoReceta.trim()) return;
+    setErrorReceta("");
+    setRecetaAdaptada(null);
+    try {
+      const alimentosDisp = todosLosAlimentos.filter(a => sels[a.id]);
+      const r = adaptarRecetaLocal(textoReceta, macros, kcalObj, alimentosDisp);
+      setRecetaAdaptada(r);
+    } catch (e) {
+      setErrorReceta("No pude analizar la receta. Asegúrate de que has pegado el texto completo.");
+    }
+  }
+  function guardarRecetaAdaptada() {
+    if (!recetaAdaptada) return;
+    const nueva = {
+      id: Date.now(),
+      nombreComida: recetaAdaptada.nombre,
+      nombreDia: "Receta adaptada",
+      textoOriginal: textoReceta,
+      twists: recetaAdaptada.twists || [],
+      ingredientes: recetaAdaptada.ingredientes,
+      kcal: recetaAdaptada.kcal,
+      descripcion: "",
+      fecha: new Date().toLocaleDateString("es-ES"),
+      nota: ""
+    };
+    setRecetario(prev => [nueva, ...prev]);
+    setRecetaAdaptada(null);
+    setTextoReceta("");
+  }
+  function guardarMedicion() {
+    const p = +med.peso,
+      al = +med.altura,
+      ci = +med.cintura,
+      ca = +med.cadera,
+      cu = +med.cuello;
+    if (!p || !al) return;
+    const imc = calcIMC(p, al);
+    const grasa = ci && cu ? calcGrasa({
+      sexo: med.sexo,
+      cintura: ci,
+      cadera: ca,
+      cuello: cu,
+      alturaCm: al
+    }) : null;
+    const icc = ci && ca ? calcICC(ci, ca) : null;
+    const ant = progreso[progreso.length - 1];
+    const sim = ant ? simbolo(p, ant.peso) : "→";
+    setProgreso(prev => [...prev, {
+      fecha: Date.now(),
+      peso: p,
+      imc,
+      grasa,
+      icc,
+      simbolo: sim
+    }]);
+    setMedGuardada(true);
+    setTimeout(() => setMedGuardada(false), 3000);
+  }
+  function addAlimentoCustom() {
+    const {
+      n,
+      rol,
+      kcal,
+      p,
+      c,
+      g,
+      ref
+    } = alimentoCustom;
+    if (!n || !kcal) return;
+    const nuevo = {
+      id: `custom_${Date.now()}`,
+      n,
+      rol,
+      ref,
+      kcal: +kcal,
+      p: +p,
+      c: +c,
+      g: +g
+    };
+    setCustomAlimentos(prev => [...prev, nuevo]);
+    setSels(prev => ({
+      ...prev,
+      [nuevo.id]: true
+    }));
+    setAlimentoCustom({
+      n: "",
+      rol: "proteina",
+      kcal: "",
+      p: "",
+      c: "",
+      g: "",
+      ref: "tal cual"
+    });
+    setMostrarFormCustom(false);
+  }
+
+  /* ─── Navegación ─── */
+  const ORDEN = ["fase1", "progreso", "menu", "recetario"];
+  const tabIdx = ORDEN.indexOf(tab);
+  const goNext = tabIdx < ORDEN.length - 1 ? () => setTab(ORDEN[tabIdx + 1]) : null;
+  const goPrev = tabIdx > 0 ? () => setTab(ORDEN[tabIdx - 1]) : null;
+  const perdMin = pesoN ? perdStr(pesoN * 0.005) : "—";
+  const perdMax = pesoN ? perdStr(pesoN * 0.01) : "—";
+
+  /* ─── Medición actual (sin guardar) ─── */
+  const imcActual = med.peso && med.altura ? calcIMC(+med.peso, +med.altura) : null;
+  const grasaActual = med.cintura && med.cuello && med.peso && med.altura ? calcGrasa({
+    sexo: med.sexo,
+    cintura: +med.cintura,
+    cadera: +med.cadera,
+    cuello: +med.cuello,
+    alturaCm: +med.altura
+  }) : null;
+  const iccActual = med.cintura && med.cadera ? calcICC(+med.cintura, +med.cadera) : null;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "min-h-screen bg-stone-50"
+  }, /*#__PURE__*/React.createElement("header", {
+    className: "border-b border-stone-200 bg-white sticky top-0 z-10"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "mx-auto max-w-3xl px-4 py-4"
+  }, /*#__PURE__*/React.createElement("h1", {
+    className: "font-serif text-xl text-stone-900"
+  }, "Tu plan de alimentación 🌿"), /*#__PURE__*/React.createElement("nav", {
+    className: "mt-3 flex gap-1.5 overflow-x-auto"
+  }, TABS.map(t => /*#__PURE__*/React.createElement("button", {
+    key: t.id,
+    onClick: () => setTab(t.id),
+    className: `whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition ${tab === t.id ? "bg-emerald-700 text-white" : "bg-stone-100 text-stone-600 hover:bg-stone-200"}`
+  }, t.label))))), /*#__PURE__*/React.createElement("main", {
+    className: "mx-auto max-w-3xl px-4 py-6 space-y-5"
+  }, tab === "fase1" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Card, {
+    cls: "bg-gradient-to-br from-emerald-50 to-stone-50 border-emerald-100"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-emerald-900 leading-relaxed"
+  }, "Hola 👋 Esto no es una dieta de aguantar. Es aprender a comer para que tu cuerpo esté bien, tengas energía y, de paso, vayas perdiendo la grasa que no necesitas — poco a poco, sin prisa y sin obsesiones."), /*#__PURE__*/React.createElement("p", {
+    className: "mt-2 text-sm text-emerald-900"
+  }, "Calculamos tu objetivo en 4 pasos. Tardas 2 minutos.")), /*#__PURE__*/React.createElement(Card, null, /*#__PURE__*/React.createElement(PasoHdr, {
+    n: 1,
+    total: 4,
+    titulo: "Tasa metabólica basal (TMB)"
+  }), /*#__PURE__*/React.createElement(Expl, null, "Es lo que tu cuerpo gasta solo por existir — respirar, pensar, bombear sangre. No cuenta el movimiento. Depende de tu sexo, peso, altura y edad."), /*#__PURE__*/React.createElement("div", {
+    className: "mt-4 grid grid-cols-2 gap-3"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Lbl, null, "Sexo"), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, ["mujer", "hombre"].map(s => /*#__PURE__*/React.createElement("button", {
+    key: s,
+    onClick: () => setSexo(s),
+    className: `flex-1 rounded-lg border px-3 py-2 text-sm capitalize ${sexo === s ? "border-emerald-600 bg-emerald-50 text-emerald-800" : "border-stone-300 text-stone-600"}`
+  }, s)))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Lbl, null, "Edad (años)"), /*#__PURE__*/React.createElement(Inp, {
+    type: "number",
+    placeholder: "ej. 30",
+    value: edad,
+    onChange: e => setEdad(e.target.value)
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Lbl, null, "Peso (kg)"), /*#__PURE__*/React.createElement(Inp, {
+    type: "number",
+    placeholder: "ej. 65",
+    value: peso,
+    onChange: e => setPeso(e.target.value)
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Lbl, null, "Altura (cm)"), /*#__PURE__*/React.createElement(Inp, {
+    type: "number",
+    placeholder: "ej. 165",
+    value: altura,
+    onChange: e => setAltura(e.target.value)
+  }))), datosOk && /*#__PURE__*/React.createElement("div", {
+    className: "mt-4 rounded-xl bg-stone-50 border border-stone-200 px-4 py-3"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-stone-500"
+  }, "Tu TMB (fórmula Mifflin-St Jeor)"), /*#__PURE__*/React.createElement("p", {
+    className: "font-serif text-2xl text-stone-900"
+  }, Math.round(tmb), " kcal/día"))), /*#__PURE__*/React.createElement(Card, null, /*#__PURE__*/React.createElement(PasoHdr, {
+    n: 2,
+    total: 4,
+    titulo: "Tu gasto total diario (TDEE)"
+  }), /*#__PURE__*/React.createElement(Expl, null, "La TMB solo cuenta cuando estás quieto/a. El deporte y el movimiento del día aumentan lo que gastas.", /*#__PURE__*/React.createElement("span", {
+    className: "block mt-1 text-emerald-700 font-medium"
+  }, "Fórmula: TDEE = TMB × (1,2 + horas/semana × 0,035). Cada hora de deporte semanal añade un 3,5% a tu gasto diario.")), /*#__PURE__*/React.createElement("div", {
+    className: "mt-4"
+  }, /*#__PURE__*/React.createElement(Lbl, null, "Horas de deporte a la semana: ", /*#__PURE__*/React.createElement("span", {
+    className: "text-emerald-700 font-semibold"
+  }, horasDeporte, " h")), /*#__PURE__*/React.createElement("input", {
+    type: "range",
+    min: 0,
+    max: 20,
+    value: horasDeporte,
+    onChange: e => setHorasDeporte(+e.target.value),
+    className: "w-full accent-emerald-700 mt-1"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex justify-between text-xs text-stone-400 mt-0.5"
+  }, /*#__PURE__*/React.createElement("span", null, "0 h · sedentario"), /*#__PURE__*/React.createElement("span", null, "20 h · atleta"))), /*#__PURE__*/React.createElement("div", {
+    className: "mt-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setTrabajoPie(!trabajoPie),
+    className: `rounded-lg border px-3 py-2 text-sm ${trabajoPie ? "border-emerald-600 bg-emerald-50 text-emerald-800" : "border-stone-200 text-stone-600"}`
+  }, trabajoPie ? "✓ " : "", "Mi trabajo es de pie o muy activo (+10%)")), datosOk && /*#__PURE__*/React.createElement("div", {
+    className: "mt-4 rounded-xl bg-stone-50 border border-stone-200 px-4 py-3"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-stone-500"
+  }, "Tu gasto total diario estimado"), /*#__PURE__*/React.createElement("p", {
+    className: "font-serif text-2xl text-stone-900"
+  }, Math.round(tdee), " kcal/día"))), /*#__PURE__*/React.createElement(Card, null, /*#__PURE__*/React.createElement(PasoHdr, {
+    n: 3,
+    total: 4,
+    titulo: "El pequeño déficit — tu magia"
+  }), /*#__PURE__*/React.createElement(Expl, null, "Para perder grasa hay que comer un pelín menos de lo que gastas. Un 10–20% es suficiente: pierdes grasa, mantienes músculo y sigues con energía para vivir y entrenar."), /*#__PURE__*/React.createElement(Lbl, null, "Déficit: ", deficit, "% ", deficit <= 12 ? "(suave, ideal para empezar)" : deficit <= 17 ? "(moderado, muy recomendado)" : "(agresivo — ve con cuidado)"), /*#__PURE__*/React.createElement("input", {
+    type: "range",
+    min: 10,
+    max: 20,
+    value: deficit,
+    onChange: e => setDeficit(+e.target.value),
+    className: "w-full accent-emerald-700"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex justify-between text-xs text-stone-400"
+  }, /*#__PURE__*/React.createElement("span", null, "10%"), /*#__PURE__*/React.createElement("span", null, "20%")), datosOk && /*#__PURE__*/React.createElement("div", {
+    className: "mt-4 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-emerald-800"
+  }, "✨ Tu objetivo calórico diario"), /*#__PURE__*/React.createElement("p", {
+    className: "font-serif text-2xl text-emerald-900"
+  }, Math.round(kcalObj), " kcal/día"), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-emerald-700 mt-1"
+  }, "Ritmo esperable: ", perdMin, "–", perdMax, " por semana. Lento y sostenible."))), /*#__PURE__*/React.createElement(Card, null, /*#__PURE__*/React.createElement(PasoHdr, {
+    n: 4,
+    total: 4,
+    titulo: "Cómo repartir tus calorías"
+  }), /*#__PURE__*/React.createElement(Expl, null, "La proteína le dice a tu cuerpo \"no toques el músculo, quema grasa\". Primero calculamos cuánta necesitas según tu peso. El resto se reparte entre grasa (imprescindible para hormonas) e hidratos (tu combustible)."), /*#__PURE__*/React.createElement(Lbl, null, "Proteína: ", gPKg.toFixed(1), " g/kg de peso corporal"), /*#__PURE__*/React.createElement("input", {
+    type: "range",
+    min: 1.6,
+    max: 2.0,
+    step: 0.1,
+    value: gPKg,
+    onChange: e => setGPKg(+e.target.value),
+    className: "w-full accent-rose-500"
+  }), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-stone-400 mb-3"
+  }, "Rango óptimo: 1,6–2,0 g/kg. Más alto si entrenas con pesas."), /*#__PURE__*/React.createElement(Lbl, null, "Grasa saludable: ", pctG, "%"), /*#__PURE__*/React.createElement("input", {
+    type: "range",
+    min: 20,
+    max: 30,
+    value: pctG,
+    onChange: e => setPctG(+e.target.value),
+    className: "w-full accent-amber-400 mb-4"
+  }), datosOk ? /*#__PURE__*/React.createElement("div", {
+    className: "space-y-3"
+  }, /*#__PURE__*/React.createElement(MacroBar, {
+    nombre: "Proteína 💪",
+    gramos: gProteina,
+    kcal: kcalProt,
+    pct: pctProt,
+    color: "bg-rose-500"
+  }), /*#__PURE__*/React.createElement(MacroBar, {
+    nombre: "Grasa saludable 🥑",
+    gramos: gGrasa,
+    kcal: kcalGrasa,
+    pct: pctG,
+    color: "bg-amber-400"
+  }), /*#__PURE__*/React.createElement(MacroBar, {
+    nombre: "Carbohidratos de calidad 🌾",
+    gramos: gCarbo,
+    kcal: kcalCarbo,
+    pct: pctCarbo,
+    color: "bg-sky-500"
+  })) : /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-stone-400"
+  }, "Rellena tus datos arriba para ver los macros."), /*#__PURE__*/React.createElement(Expl, null, "Consejo: elige carbohidratos de bajo índice glucémico la mayor parte del tiempo (avena, arroz integral, legumbres, boniato). Energía estable, hambre a raya.")), datosOk && /*#__PURE__*/React.createElement(Card, {
+    cls: "bg-emerald-50 border-emerald-100"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm font-medium text-emerald-900"
+  }, "¡Ya tienes tu objetivo! 🎉"), /*#__PURE__*/React.createElement(FraseDia, null)), /*#__PURE__*/React.createElement(NavButtons, {
+    next: goNext,
+    nextLabel: "Ver mis medidas →"
+  })), tab === "progreso" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Card, {
+    cls: "bg-gradient-to-br from-sky-50 to-stone-50 border-sky-100"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-sky-900 leading-relaxed"
+  }, "Aquí guardamos medidas — no para obsesionarte, sino para ver la tendencia. Revisa cada 1–2 semanas, no cada día. Los cambios reales son lentos y constantes. 🐢✨"), pesoN > 0 && /*#__PURE__*/React.createElement("p", {
+    className: "mt-2 text-sm text-sky-900 font-medium"
+  }, "Ritmo saludable con tu peso actual: ", /*#__PURE__*/React.createElement("span", {
+    className: "text-emerald-700"
+  }, perdMin, "–", perdMax, " a la semana"), ".")), /*#__PURE__*/React.createElement(Card, null, /*#__PURE__*/React.createElement(PasoHdr, {
+    n: 1,
+    total: 3,
+    titulo: "Datos de esta medición"
+  }), /*#__PURE__*/React.createElement(Expl, null, "Solo peso y altura son obligatorios. El resto ayuda a calcular distribución de grasa — cuanta más info, mejor el diagnóstico."), /*#__PURE__*/React.createElement("div", {
+    className: "mt-3 grid grid-cols-2 gap-3"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Lbl, null, "Sexo"), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, ["mujer", "hombre"].map(s => /*#__PURE__*/React.createElement("button", {
+    key: s,
+    onClick: () => setMed(p => ({
+      ...p,
+      sexo: s
+    })),
+    className: `flex-1 rounded-lg border px-3 py-1.5 text-sm capitalize ${med.sexo === s ? "border-sky-500 bg-sky-50 text-sky-800" : "border-stone-300 text-stone-600"}`
+  }, s)))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Lbl, null, "Peso (kg)"), /*#__PURE__*/React.createElement(Inp, {
+    type: "number",
+    placeholder: "ej. 65.2",
+    value: med.peso,
+    onChange: e => setMed(p => ({
+      ...p,
+      peso: e.target.value
+    }))
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Lbl, null, "Altura (cm)"), /*#__PURE__*/React.createElement(Inp, {
+    type: "number",
+    placeholder: "ej. 165",
+    value: med.altura,
+    onChange: e => setMed(p => ({
+      ...p,
+      altura: e.target.value
+    }))
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Lbl, null, "Cintura (cm)"), /*#__PURE__*/React.createElement(Inp, {
+    type: "number",
+    placeholder: "ej. 75",
+    value: med.cintura,
+    onChange: e => setMed(p => ({
+      ...p,
+      cintura: e.target.value
+    }))
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Lbl, null, "Cadera (cm)"), /*#__PURE__*/React.createElement(Inp, {
+    type: "number",
+    placeholder: "ej. 95",
+    value: med.cadera,
+    onChange: e => setMed(p => ({
+      ...p,
+      cadera: e.target.value
+    }))
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Lbl, null, "Cuello (cm)"), /*#__PURE__*/React.createElement(Inp, {
+    type: "number",
+    placeholder: "ej. 32",
+    value: med.cuello,
+    onChange: e => setMed(p => ({
+      ...p,
+      cuello: e.target.value
+    }))
+  }))), imcActual != null && /*#__PURE__*/React.createElement("div", {
+    className: "mt-4 space-y-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "rounded-xl bg-stone-50 border border-stone-200 p-3"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-stone-500 mb-1"
+  }, "IMC — referencia general (no distingue músculo de grasa)"), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-serif text-2xl"
+  }, imcActual.toFixed(1)), /*#__PURE__*/React.createElement("span", {
+    className: `rounded-full px-2 py-0.5 text-xs font-medium ${clasifIMC(imcActual).c === "bien" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`
+  }, clasifIMC(imcActual).t))), grasaActual != null && /*#__PURE__*/React.createElement("div", {
+    className: "rounded-xl bg-stone-50 border border-stone-200 p-3"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-stone-500 mb-1"
+  }, "% de grasa corporal (Hodgdon-Beckett) — distingue grasa de músculo"), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-serif text-2xl"
+  }, grasaActual.toFixed(1), "%"), /*#__PURE__*/React.createElement("span", {
+    className: "rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-800"
+  }, clasifGrasa(med.sexo, grasaActual)))), iccActual != null && /*#__PURE__*/React.createElement("div", {
+    className: "rounded-xl bg-stone-50 border border-stone-200 p-3"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-stone-500 mb-1"
+  }, "Índice cintura-cadera — aproxima la grasa visceral (la más importante para la salud)"), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-serif text-2xl"
+  }, iccActual.toFixed(2)), /*#__PURE__*/React.createElement("span", {
+    className: `rounded-full px-2 py-0.5 text-xs font-medium ${clasifICC(med.sexo, iccActual).c === "bien" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`
+  }, clasifICC(med.sexo, iccActual).t)))), /*#__PURE__*/React.createElement("button", {
+    onClick: guardarMedicion,
+    disabled: !med.peso || !med.altura,
+    className: "mt-4 rounded-full bg-sky-700 px-5 py-2 text-sm font-medium text-white hover:bg-sky-800 disabled:opacity-40 transition"
+  }, "Guardar medición"), medGuardada && /*#__PURE__*/React.createElement("p", {
+    className: "mt-2 text-sm text-emerald-700 font-medium"
+  }, "¡Guardada! ✨ Cada medición es información valiosa.")), progreso.length >= 1 && /*#__PURE__*/React.createElement(Card, null, /*#__PURE__*/React.createElement("h3", {
+    className: "font-serif text-base text-stone-900 mb-1"
+  }, "Tu tendencia"), /*#__PURE__*/React.createElement(Expl, null, "↓ bajando · → estable · ↑ subiendo. Toca un punto para ver el dato exacto. Lo que importa es la dirección general en 3–4 semanas."), /*#__PURE__*/React.createElement("div", {
+    className: "mt-3"
+  }, /*#__PURE__*/React.createElement(GraficaProgreso, {
+    entradas: progreso
+  })), progreso.length > 0 && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setProgreso(prev => prev.slice(0, -1)),
+    className: "mt-3 text-xs text-stone-400 hover:text-rose-500"
+  }, "Eliminar última medición")), /*#__PURE__*/React.createElement(NavButtons, {
+    prev: goPrev,
+    next: goNext
+  })), tab === "menu" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Card, {
+    cls: "bg-gradient-to-br from-amber-50 to-stone-50 border-amber-100"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-amber-900 leading-relaxed"
+  }, "Construimos tu menú semanal con platos reales que te apetezcan. Para cada comida tienes ", /*#__PURE__*/React.createElement("strong", null, "2 opciones"), " — elige la que más te guste ese día. ¡La variedad es la clave para no aburrirse!"), TEMPORADA_ACTUAL.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "mt-2 rounded-lg bg-amber-100 px-3 py-2"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs font-medium text-amber-800"
+  }, "🌞 De temporada en ", MES_NOMBRE, ": ", TEMPORADA_ACTUAL.slice(0, 8).join(" · ")))), /*#__PURE__*/React.createElement(Card, null, /*#__PURE__*/React.createElement(PasoHdr, {
+    n: 1,
+    total: 4,
+    titulo: "Cuéntame sobre ti"
+  }), /*#__PURE__*/React.createElement(Expl, null, "Así filtro los grupos de alimentos para que el menú se adapte a lo que de verdad comes."), /*#__PURE__*/React.createElement("div", {
+    className: "mt-3 grid grid-cols-2 gap-2"
+  }, [{
+    k: "veggie",
+    l: "Soy vegetariano/a"
+  }, {
+    k: "noCarne",
+    l: "No como carne"
+  }, {
+    k: "noPescado",
+    l: "No como pescado"
+  }, {
+    k: "sinLacteos",
+    l: "Sin lácteos"
+  }].map(h => /*#__PURE__*/React.createElement("button", {
+    key: h.k,
+    onClick: () => setHabitos(p => ({
+      ...p,
+      [h.k]: !p[h.k]
+    })),
+    className: `rounded-lg border px-3 py-2 text-sm ${habitos[h.k] ? "border-emerald-600 bg-emerald-50 text-emerald-800" : "border-stone-200 text-stone-600"}`
+  }, habitos[h.k] ? "✓ " : "", h.l))), /*#__PURE__*/React.createElement("div", {
+    className: "mt-3"
+  }, /*#__PURE__*/React.createElement(Lbl, null, "Algo más que deba saber (alergias, aversiones, lo que adoras…)"), /*#__PURE__*/React.createElement(Inp, {
+    placeholder: "Ej: soy intolerante al gluten, no soporto el cilantro, me encantan las lentejas...",
+    value: habitos.libre,
+    onChange: e => setHabitos(p => ({
+      ...p,
+      libre: e.target.value
+    }))
+  }), habitos.libre && /*#__PURE__*/React.createElement("p", {
+    className: "mt-1 text-xs text-stone-500"
+  }, "👍 Tenlo en cuenta al elegir los alimentos del paso siguiente."))), /*#__PURE__*/React.createElement(Card, null, /*#__PURE__*/React.createElement(PasoHdr, {
+    n: 2,
+    total: 4,
+    titulo: "Tu lista de la compra"
+  }), /*#__PURE__*/React.createElement(Expl, null, "Marca todo lo que te gusta o tienes en casa. Cuantos más marques, más variado será el menú."), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 mb-4"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => toggleGlobal(true),
+    className: "rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs text-emerald-700 hover:bg-emerald-100 transition"
+  }, "Marcar todos ✓"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => toggleGlobal(false),
+    className: "rounded-full border border-stone-200 px-3 py-1 text-xs text-stone-500 hover:border-stone-400 transition"
+  }, "Quitar todos")), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-5"
+  }, gruposVisibles.map(g => {
+    const esFrutaOVerdura = g.rol === "fruta" || g.rol === "verdura";
+    const temporada = esFrutaOVerdura ? g.alimentos.filter(a => TEMPORADA_ACTUAL.some(t => a.n.toLowerCase().includes(t.toLowerCase()))) : [];
+    const restoAlimentos = esFrutaOVerdura ? g.alimentos.filter(a => !TEMPORADA_ACTUAL.some(t => a.n.toLowerCase().includes(t.toLowerCase()))) : g.alimentos;
+    const BtnAlimento = ({
+      a,
+      color = "emerald"
+    }) => /*#__PURE__*/React.createElement("button", {
+      key: a.id,
+      onClick: () => setSels(p => ({
+        ...p,
+        [a.id]: !p[a.id]
+      })),
+      className: `rounded-full border px-2.5 py-1 text-xs transition ${sels[a.id] ? `border-${color}-600 bg-${color}-700 text-white` : `border-stone-300 text-stone-600 hover:border-${color}-300`}`
+    }, sels[a.id] ? "✓ " : "", a.n);
+    return /*#__PURE__*/React.createElement("div", {
+      key: g.id
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center justify-between mb-1.5"
+    }, /*#__PURE__*/React.createElement("p", {
+      className: "text-sm font-semibold text-stone-700"
+    }, g.nombre), /*#__PURE__*/React.createElement("div", {
+      className: "flex gap-1"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => toggleTodos(g, true),
+      className: "text-xs text-emerald-600 hover:text-emerald-800 border border-emerald-200 rounded-full px-2 py-0.5"
+    }, "todos"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => toggleTodos(g, false),
+      className: "text-xs text-stone-400 hover:text-stone-600 border border-stone-200 rounded-full px-2 py-0.5"
+    }, "ninguno"))), esFrutaOVerdura ? /*#__PURE__*/React.createElement("div", {
+      className: "space-y-2"
+    }, temporada.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+      className: "text-xs text-amber-700 font-medium mb-1"
+    }, "🌞 De temporada en ", MES_NOMBRE), /*#__PURE__*/React.createElement("div", {
+      className: "flex flex-wrap gap-1.5"
+    }, temporada.map(a => /*#__PURE__*/React.createElement(BtnAlimento, {
+      key: a.id,
+      a: a
+    })))), restoAlimentos.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+      className: "text-xs text-stone-400 font-medium mb-1"
+    }, "❄️ Todo el año · congelado"), /*#__PURE__*/React.createElement("div", {
+      className: "flex flex-wrap gap-1.5"
+    }, restoAlimentos.map(a => /*#__PURE__*/React.createElement(BtnAlimento, {
+      key: a.id,
+      a: a
+    }))))) : /*#__PURE__*/React.createElement("div", {
+      className: "flex flex-wrap gap-1.5"
+    }, g.alimentos.map(a => /*#__PURE__*/React.createElement(BtnAlimento, {
+      key: a.id,
+      a: a
+    }))));
+  }), customAlimentos.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm font-semibold text-stone-700 mb-1.5"
+  }, "⭐ Mis alimentos"), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-1.5"
+  }, customAlimentos.map(a => /*#__PURE__*/React.createElement("button", {
+    key: a.id,
+    onClick: () => setSels(p => ({
+      ...p,
+      [a.id]: !p[a.id]
+    })),
+    className: `rounded-full border px-2.5 py-1 text-xs transition ${sels[a.id] ? "border-purple-600 bg-purple-700 text-white" : "border-purple-200 text-purple-700"}`
+  }, sels[a.id] ? "✓ " : "", a.n))))), /*#__PURE__*/React.createElement("div", {
+    className: "mt-4 border-t border-stone-100 pt-4"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setMostrarFormCustom(!mostrarFormCustom),
+    className: "flex items-center gap-1.5 rounded-full border border-dashed border-emerald-300 bg-emerald-50 px-4 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition"
+  }, mostrarFormCustom ? "▲ Cancelar" : "＋ Añadir alimento que no está en la lista"), mostrarFormCustom && /*#__PURE__*/React.createElement("div", {
+    className: "mt-3 rounded-xl border border-stone-200 bg-stone-50 p-3 space-y-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "col-span-2"
+  }, /*#__PURE__*/React.createElement(Lbl, null, "Nombre"), /*#__PURE__*/React.createElement(Inp, {
+    placeholder: "Ej. Tempeh de garbanzo",
+    value: alimentoCustom.n,
+    onChange: e => setAlimentoCustom(p => ({
+      ...p,
+      n: e.target.value
+    }))
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Lbl, null, "Grupo"), /*#__PURE__*/React.createElement(Sel, {
+    value: alimentoCustom.rol,
+    onChange: e => setAlimentoCustom(p => ({
+      ...p,
+      rol: e.target.value
+    }))
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "proteina"
+  }, "Proteína"), /*#__PURE__*/React.createElement("option", {
+    value: "carbohidrato"
+  }, "Carbohidrato"), /*#__PURE__*/React.createElement("option", {
+    value: "grasa"
+  }, "Grasa"), /*#__PURE__*/React.createElement("option", {
+    value: "verdura"
+  }, "Verdura"), /*#__PURE__*/React.createElement("option", {
+    value: "fruta"
+  }, "Fruta"))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Lbl, null, "Referencia"), /*#__PURE__*/React.createElement(Inp, {
+    placeholder: "ej. tal cual",
+    value: alimentoCustom.ref,
+    onChange: e => setAlimentoCustom(p => ({
+      ...p,
+      ref: e.target.value
+    }))
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Lbl, null, "kcal /100 g"), /*#__PURE__*/React.createElement(Inp, {
+    type: "number",
+    placeholder: "ej. 150",
+    value: alimentoCustom.kcal,
+    onChange: e => setAlimentoCustom(p => ({
+      ...p,
+      kcal: e.target.value
+    }))
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Lbl, null, "Proteína (g)"), /*#__PURE__*/React.createElement(Inp, {
+    type: "number",
+    placeholder: "ej. 15",
+    value: alimentoCustom.p,
+    onChange: e => setAlimentoCustom(p => ({
+      ...p,
+      p: e.target.value
+    }))
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Lbl, null, "Carbohidrato (g)"), /*#__PURE__*/React.createElement(Inp, {
+    type: "number",
+    placeholder: "ej. 5",
+    value: alimentoCustom.c,
+    onChange: e => setAlimentoCustom(p => ({
+      ...p,
+      c: e.target.value
+    }))
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Lbl, null, "Grasa (g)"), /*#__PURE__*/React.createElement(Inp, {
+    type: "number",
+    placeholder: "ej. 8",
+    value: alimentoCustom.g,
+    onChange: e => setAlimentoCustom(p => ({
+      ...p,
+      g: e.target.value
+    }))
+  }))), /*#__PURE__*/React.createElement("button", {
+    onClick: addAlimentoCustom,
+    disabled: !alimentoCustom.n || !alimentoCustom.kcal,
+    className: "mt-1 rounded-full bg-purple-700 px-4 py-1.5 text-xs font-medium text-white hover:bg-purple-800 disabled:opacity-40 transition"
+  }, "Añadir alimento"))), gruposSinElegir.length > 0 && /*#__PURE__*/React.createElement("p", {
+    className: "mt-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700"
+  }, "Aún sin marcar: ", gruposSinElegir.map(g => g.nombre).join(", "), ". Elige al menos uno de cada para un menú completo.")), /*#__PURE__*/React.createElement(Card, null, /*#__PURE__*/React.createElement(PasoHdr, {
+    n: 3,
+    total: 4,
+    titulo: "¿Qué vas a hacer hoy?"
+  }), /*#__PURE__*/React.createElement(Expl, null, "Con esto ajusto los hidratos — más antes o después del entreno si lo hay, sin salirte del déficit. Cambia los datos cada día cuando generes el menú."), /*#__PURE__*/React.createElement("div", {
+    className: "mt-3 grid grid-cols-2 gap-3"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-xs font-medium text-stone-600 mb-1"
+  }, "Día de la semana"), /*#__PURE__*/React.createElement(Sel, {
+    value: actHoy.diaNombre,
+    onChange: e => setActHoy(p => ({
+      ...p,
+      diaNombre: e.target.value
+    }))
+  }, /*#__PURE__*/React.createElement("option", null, "Lunes"), /*#__PURE__*/React.createElement("option", null, "Martes"), /*#__PURE__*/React.createElement("option", null, "Miércoles"), /*#__PURE__*/React.createElement("option", null, "Jueves"), /*#__PURE__*/React.createElement("option", null, "Viernes"), /*#__PURE__*/React.createElement("option", null, "Sábado"), /*#__PURE__*/React.createElement("option", null, "Domingo"))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-xs font-medium text-stone-600 mb-1"
+  }, "Actividad"), /*#__PURE__*/React.createElement(Sel, {
+    value: actHoy.intens,
+    onChange: e => setActHoy(p => ({
+      ...p,
+      intens: e.target.value
+    }))
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "ninguna"
+  }, "Descanso"), /*#__PURE__*/React.createElement("option", {
+    value: "suave"
+  }, "Suave (caminar, yoga…)"), /*#__PURE__*/React.createElement("option", {
+    value: "moderada"
+  }, "Moderada (gym, nadar…)"), /*#__PURE__*/React.createElement("option", {
+    value: "intensa"
+  }, "Intensa (spinning, HIIT…)"))), actHoy.intens !== "ninguna" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-xs font-medium text-stone-600 mb-1"
+  }, "Franja horaria"), /*#__PURE__*/React.createElement(Sel, {
+    value: actHoy.franja,
+    onChange: e => setActHoy(p => ({
+      ...p,
+      franja: e.target.value
+    }))
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Elige franja"), /*#__PURE__*/React.createElement("option", {
+    value: "mañana"
+  }, "Mañana (antes del trabajo)"), /*#__PURE__*/React.createElement("option", {
+    value: "mediodía"
+  }, "Mediodía (hora de comer)"), /*#__PURE__*/React.createElement("option", {
+    value: "tarde"
+  }, "Tarde (después de trabajar)"), /*#__PURE__*/React.createElement("option", {
+    value: "noche"
+  }, "Noche (después de cenar)"))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-xs font-medium text-stone-600 mb-1"
+  }, "Duración"), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement(Inp, {
+    type: "number",
+    className: "w-full",
+    placeholder: "45",
+    min: 15,
+    max: 180,
+    value: actHoy.horas,
+    onChange: e => setActHoy(p => ({
+      ...p,
+      horas: e.target.value
+    }))
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-stone-400 shrink-0"
+  }, "min")))))), /*#__PURE__*/React.createElement(Card, null, /*#__PURE__*/React.createElement(PasoHdr, {
+    n: 4,
+    total: 4,
+    titulo: "Tu menú de hoy"
+  }), /*#__PURE__*/React.createElement(Expl, null, "Platos reales con gramos calculados para tus macros exactos. Dos opciones por comida — elige la que más te apetezca. Cambia los inputs de arriba y regenera cuando quieras otro día."), !datosOk && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2"
+  }, "Primero rellena tus datos en \"Tu objetivo\" para calcular los macros."), /*#__PURE__*/React.createElement("button", {
+    onClick: handleGenerarMenu,
+    disabled: gruposSinElegir.length > 0 || !datosOk,
+    className: "mt-3 rounded-full bg-amber-600 px-5 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-40 transition"
+  }, "Generar menú del " + (actHoy.diaNombre || "día") + " 🍽️"), menuError && /*#__PURE__*/React.createElement("p", {
+    className: "mt-3 text-sm text-rose-600"
+  }, menuError), menuHoy && /*#__PURE__*/React.createElement("div", {
+    className: "mt-5 space-y-5"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-stone-400"
+  }, "Menú del ", menuHoy.nombre), /*#__PURE__*/React.createElement("button", {
+    onClick: handleGenerarMenu,
+    className: "rounded-full border border-stone-200 px-3 py-1 text-xs text-stone-500 hover:border-amber-300 hover:text-amber-600 transition disabled:opacity-40"
+  }, "🔄 Nuevas opciones")), COMIDAS_DIA.map(c => {
+    const ops = menuHoy.comidas[c];
+    if (!ops || !ops.length) return null;
+    const elegida = opElegida[c] ?? 0;
+    return /*#__PURE__*/React.createElement("div", {
+      key: c
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-2 mb-2"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "font-serif text-sm text-stone-800"
+    }, COMIDA_EMOJI[c], " ", COMIDA_LABEL[c]), ops.length > 1 && /*#__PURE__*/React.createElement("div", {
+      className: "flex gap-1 ml-auto"
+    }, ops.map((_, oi) => /*#__PURE__*/React.createElement("button", {
+      key: oi,
+      onClick: () => setOpElegida(p => ({
+        ...p,
+        [c]: oi
+      })),
+      className: `rounded-full border px-2 py-0.5 text-xs transition ${elegida === oi ? "bg-stone-800 text-white border-stone-800" : "border-stone-300 text-stone-500"}`
+    }, "Opción ", oi + 1)))), /*#__PURE__*/React.createElement(PlatoCard, {
+      opcion: ops[elegida],
+      onGuardar: () => handleGuardarDesdeMenu(c, elegida)
+    }));
+  }), /*#__PURE__*/React.createElement(FraseDia, null), macrosDia && /*#__PURE__*/React.createElement("div", {
+    className: "rounded-2xl border border-stone-200 bg-white p-4 space-y-3"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs font-semibold text-stone-500 uppercase tracking-wide"
+  }, "Macros del día · cómo vas"), [{
+    label: "Proteína",
+    real: macrosDia.p,
+    obj: Math.round(macros.proteina),
+    color: "bg-rose-500",
+    textColor: "text-rose-600",
+    unit: "g"
+  }, {
+    label: "Carbohidrato",
+    real: macrosDia.c,
+    obj: Math.round(macros.carbohidrato),
+    color: "bg-sky-500",
+    textColor: "text-sky-600",
+    unit: "g"
+  }, {
+    label: "Grasa",
+    real: macrosDia.g,
+    obj: Math.round(macros.grasa),
+    color: "bg-amber-400",
+    textColor: "text-amber-600",
+    unit: "g"
+  }, {
+    label: "Calorías",
+    real: macrosDia.kcal,
+    obj: Math.round(kcalObj),
+    color: "bg-emerald-500",
+    textColor: "text-emerald-700",
+    unit: "kcal"
+  }].map(({
+    label,
+    real,
+    obj,
+    color,
+    textColor,
+    unit
+  }) => {
+    const pct = Math.min(Math.round(real / obj * 100), 120);
+    const dif = real - obj;
+    const ok = Math.abs(dif) <= obj * 0.07; // ±7% = verde
+    const cerca = Math.abs(dif) <= obj * 0.15; // ±15% = ámbar
+    const barColor = ok ? color : cerca ? "bg-amber-400" : "bg-rose-400";
+    const msg = ok ? "✓ En objetivo" : dif > 0 ? `+${dif}${unit} sobre el objetivo` : `${dif}${unit} por debajo`;
+    return /*#__PURE__*/React.createElement("div", {
+      key: label
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex justify-between text-xs mb-1"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "font-medium text-stone-700"
+    }, label), /*#__PURE__*/React.createElement("span", {
+      className: `${ok ? "text-emerald-600" : cerca ? "text-amber-600" : "text-rose-500"}`
+    }, real, unit, " / ", obj, unit, " ", /*#__PURE__*/React.createElement("span", {
+      className: "text-stone-400"
+    }, "· ", msg))), /*#__PURE__*/React.createElement("div", {
+      className: "h-2 w-full rounded-full bg-stone-100 overflow-hidden"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: `h-full rounded-full transition-all ${barColor}`,
+      style: {
+        width: `${Math.min(pct, 100)}%`
+      }
+    })));
+  }), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-stone-400 pt-1"
+  }, "Cambia entre Opción 1 y 2 en cada comida para ajustar el total. Un día no define nada — lo que cuenta es la tendencia de la semana.")))), /*#__PURE__*/React.createElement(NavButtons, {
+    prev: goPrev,
+    next: goNext
+  })), tab === "recetario" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Card, {
+    cls: "bg-gradient-to-br from-rose-50 to-stone-50 border-rose-100"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-rose-900 leading-relaxed"
+  }, "Tu recetario personal 📖 Guarda platos del menú, adapta recetas de internet a tus macros y añade notas. Tu libro de cocina saludable, construido por ti.")), /*#__PURE__*/React.createElement(Card, null, /*#__PURE__*/React.createElement("h3", {
+    className: "font-serif text-base text-stone-900"
+  }, "🥘 Adaptar una receta a tus macros"), /*#__PURE__*/React.createElement(Expl, null, "Copia y pega el texto de cualquier receta (ingredientes + elaboración). La analizo, sugiero 3 cambios para hacerla más sana y te doy las cantidades exactas para tus macros — sin tener que buscar en internet."), /*#__PURE__*/React.createElement("textarea", {
+    className: "mt-3 w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-sm text-stone-800 focus:border-rose-400 focus:outline-none resize-none",
+    rows: 5,
+    placeholder: "Pega aquí el texto de la receta:\n\nEj: Macarrones a la boloñesa\nIngredientes: 200g pasta, 150g carne picada, 1 cebolla, tomate frito, aceite…\nPreparación: sofreír la cebolla…",
+    value: textoReceta,
+    onChange: e => {
+      setTextoReceta(e.target.value);
+      setErrorReceta("");
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: handleAdaptarTexto,
+    disabled: !textoReceta.trim() || !datosOk,
+    className: "mt-2 rounded-full bg-rose-600 px-5 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-40 transition"
+  }, "Adaptar a mis macros"), !datosOk && /*#__PURE__*/React.createElement("p", {
+    className: "mt-1 text-xs text-amber-600"
+  }, "Primero rellena tus datos en \"Tu objetivo\" para que pueda calcular cantidades."), errorReceta && /*#__PURE__*/React.createElement("p", {
+    className: "mt-2 text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2"
+  }, errorReceta), recetaAdaptada && /*#__PURE__*/React.createElement("div", {
+    className: "mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 space-y-3"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "font-serif text-base text-stone-900"
+  }, recetaAdaptada.nombre), recetaAdaptada.twists?.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs font-semibold text-rose-700 mb-1.5"
+  }, "💡 3 cambios para hacerla más sana"), /*#__PURE__*/React.createElement("ul", {
+    className: "space-y-1"
+  }, recetaAdaptada.twists.map((t, i) => /*#__PURE__*/React.createElement("li", {
+    key: i,
+    className: "text-xs text-stone-700 flex gap-1.5"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-rose-400 shrink-0"
+  }, "•"), t)))), recetaAdaptada.ingredientes?.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs font-semibold text-stone-700 mb-1.5"
+  }, "Cantidades para tus macros (~", recetaAdaptada.kcal, " kcal)"), /*#__PURE__*/React.createElement("ul", {
+    className: "space-y-1"
+  }, recetaAdaptada.ingredientes.map((ing, i) => /*#__PURE__*/React.createElement("li", {
+    key: i,
+    className: "flex justify-between text-xs"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-stone-700"
+  }, ing.nombre, ing.gramos ? /*#__PURE__*/React.createElement("span", {
+    className: "text-stone-400"
+  }, " — ", ing.gramos, "g (", ing.ref, ")") : /*#__PURE__*/React.createElement("span", {
+    className: "text-stone-400"
+  }, " — ", ing.ref)), /*#__PURE__*/React.createElement("span", {
+    className: "text-stone-400 ml-3 shrink-0"
+  }, ing.macroLabel))))), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: guardarRecetaAdaptada,
+    className: "rounded-full bg-emerald-700 px-4 py-1.5 text-xs font-medium text-white hover:bg-emerald-800 transition"
+  }, "Guardar en mi recetario ♥"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setRecetaAdaptada(null),
+    className: "rounded-full border border-stone-300 px-4 py-1.5 text-xs text-stone-500 hover:border-stone-400 transition"
+  }, "Descartar")))), recetario.length === 0 ? /*#__PURE__*/React.createElement(Card, null, /*#__PURE__*/React.createElement("p", {
+    className: "text-center text-stone-400 text-sm py-6"
+  }, "Tu recetario está vacío 🌱", /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs"
+  }, "Guarda platos desde el menú o adapta recetas de internet."))) : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-4"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "font-serif text-base text-stone-800 px-1"
+  }, "Mis recetas guardadas (", recetario.length, ")"), recetario.map(r => /*#__PURE__*/React.createElement(Card, {
+    key: r.id
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-start justify-between gap-2"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    className: "font-serif text-sm text-stone-900"
+  }, r.nombreComida), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 mt-0.5 flex-wrap"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-stone-400"
+  }, r.nombreDia, " · ", r.fecha), r.kcal && /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-amber-600 font-medium"
+  }, r.kcal, " kcal"))), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setVerReceta(verReceta === r.id ? null : r.id),
+    className: "text-xs text-stone-400 hover:text-stone-700 border border-stone-200 rounded-full px-2 py-0.5 shrink-0"
+  }, verReceta === r.id ? "▲ Ocultar" : "▼ Ver")), verReceta === r.id && /*#__PURE__*/React.createElement("div", {
+    className: "mt-3 space-y-3 border-t border-stone-100 pt-3"
+  }, r.twists?.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs font-semibold text-rose-700 mb-1"
+  }, "💡 Mejoras aplicadas"), /*#__PURE__*/React.createElement("ul", {
+    className: "space-y-1"
+  }, r.twists.map((t, i) => /*#__PURE__*/React.createElement("li", {
+    key: i,
+    className: "text-xs text-stone-600 flex gap-1.5"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-rose-400 shrink-0"
+  }, "•"), t)))), r.ingredientes?.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs font-semibold text-stone-700 mb-1"
+  }, "Ingredientes adaptados"), /*#__PURE__*/React.createElement("ul", {
+    className: "space-y-1"
+  }, r.ingredientes.map((ing, i) => /*#__PURE__*/React.createElement("li", {
+    key: i,
+    className: "flex justify-between text-xs"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-stone-700"
+  }, ing.n || ing.nombre, ing.gramos ? /*#__PURE__*/React.createElement("span", {
+    className: "text-stone-400"
+  }, " — ", ing.gramos, "g (", ing.ref, ")") : /*#__PURE__*/React.createElement("span", {
+    className: "text-stone-400"
+  }, " — ", ing.ref)), /*#__PURE__*/React.createElement("span", {
+    className: "text-stone-400 ml-2 shrink-0"
+  }, ing.macroLabel || ing.macro_label || ""))))), r.textoOriginal && /*#__PURE__*/React.createElement("details", {
+    className: "text-xs"
+  }, /*#__PURE__*/React.createElement("summary", {
+    className: "cursor-pointer text-stone-400 hover:text-stone-600 select-none"
+  }, "Ver receta original"), /*#__PURE__*/React.createElement("pre", {
+    className: "mt-2 whitespace-pre-wrap text-stone-500 bg-stone-50 rounded-lg p-3 leading-relaxed"
+  }, r.textoOriginal)), r.descripcion && !r.twists?.length && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs italic text-stone-500"
+  }, r.descripcion), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Lbl, null, "Mis notas"), /*#__PURE__*/React.createElement("textarea", {
+    className: "w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm text-stone-700 focus:border-rose-400 focus:outline-none resize-none",
+    rows: 2,
+    placeholder: "Cómo te quedó, qué cambiarías…",
+    value: notaActual[r.id] ?? r.nota,
+    onChange: e => setNotaActual(p => ({
+      ...p,
+      [r.id]: e.target.value
+    })),
+    onBlur: e => {
+      const nota = e.target.value;
+      setRecetario(prev => prev.map(x => x.id === r.id ? {
+        ...x,
+        nota
+      } : x));
+    }
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setRecetario(prev => prev.filter(x => x.id !== r.id)),
+    className: "text-xs text-rose-500 hover:text-rose-700 transition"
+  }, "Eliminar receta"))))), /*#__PURE__*/React.createElement(NavButtons, {
+    prev: goPrev
+  }))), /*#__PURE__*/React.createElement("footer", {
+    className: "mx-auto max-w-3xl px-4 pb-8 pt-2"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-stone-400"
+  }, "Esta herramienta usa fórmulas estándar de nutrición (Mifflin-St Jeor, Hodgdon-Beckett) y es orientativa. No sustituye la valoración de un profesional de la salud.")));
+}
+
+    ReactDOM.createRoot(document.getElementById("root")).render(
+      React.createElement(App)
+    );
+  </script>
+</body>
+</html>
